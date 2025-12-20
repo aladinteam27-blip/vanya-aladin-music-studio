@@ -1,7 +1,6 @@
 import { 
   useState, 
   useRef, 
-  useEffect, 
   useCallback, 
   memo,
   type TouchEvent,
@@ -31,11 +30,12 @@ export const CoverCarousel = memo(function CoverCarousel({
   const lastX = useRef(0);
   const lastTime = useRef(Date.now());
 
-  // Cover size based on viewport
+  // Cover size based on viewport - larger for fullscreen feel
   const coverSize = typeof window !== 'undefined' 
-    ? Math.min(window.innerWidth * 0.7, 320) 
-    : 280;
-  const gap = 20;
+    ? Math.min(window.innerWidth * 0.55, 380) 
+    : 320;
+  const sideCoverSize = coverSize * 0.7;
+  const gap = 40;
 
   // Handle drag start
   const handleDragStart = useCallback((clientX: number) => {
@@ -64,17 +64,17 @@ export const CoverCarousel = memo(function CoverCarousel({
     setTranslateX(newTranslateX);
   }, [isDragging, startX]);
 
-  // Handle drag end
+  // Handle drag end with inertia
   const handleDragEnd = useCallback(() => {
     if (!isDragging) return;
     setIsDragging(false);
     
-    const threshold = coverSize / 3;
-    const velocityThreshold = 0.3;
+    const threshold = coverSize / 4;
+    const velocityThreshold = 0.25;
     
     let newIndex = currentIndex;
     
-    // Consider both position and velocity
+    // Consider both position and velocity for natural feel
     if (Math.abs(velocity) > velocityThreshold) {
       newIndex = velocity > 0 
         ? Math.max(0, currentIndex - 1) 
@@ -126,78 +126,137 @@ export const CoverCarousel = memo(function CoverCarousel({
     }
   }, [isDragging, handleDragEnd]);
 
-  // Calculate cover positions
+  // Calculate cover positions - 3 visible covers with stagger effect
   const getCardStyle = (index: number) => {
     const diff = index - currentIndex;
     const dragOffset = isDragging ? translateX / (coverSize + gap) : 0;
     const adjustedDiff = diff - dragOffset;
     
-    // Calculate vertical offset for staggered effect
+    // Only show -1, 0, 1 positions
+    if (Math.abs(adjustedDiff) > 2) {
+      return { opacity: 0, pointerEvents: 'none' as const, zIndex: 0 };
+    }
+    
     const absAdjustedDiff = Math.abs(adjustedDiff);
-    const verticalOffset = Math.min(absAdjustedDiff * 15, 40);
-    const yDirection = adjustedDiff > 0 ? 1 : -1;
     
-    // Scale based on distance from center
-    const scale = Math.max(0.75, 1 - absAdjustedDiff * 0.12);
+    // Vertical offset: LEFT (-1) goes UP, RIGHT (+1) goes DOWN
+    // So if diff is negative (left side), we move UP (negative Y)
+    // If diff is positive (right side), we move DOWN (positive Y)
+    const verticalOffset = adjustedDiff * 60; // Negative for left (up), positive for right (down)
     
-    // Opacity based on distance
-    const opacity = Math.max(0.4, 1 - absAdjustedDiff * 0.25);
+    // Scale: center is full, sides are smaller
+    const scale = adjustedDiff === 0 ? 1 : Math.max(0.65, 1 - absAdjustedDiff * 0.35);
+    
+    // Opacity: center is bright, sides are dimmed
+    const opacity = adjustedDiff === 0 ? 1 : Math.max(0.5, 1 - absAdjustedDiff * 0.4);
+    
+    // Brightness for dimming effect
+    const brightness = adjustedDiff === 0 ? 1 : 0.6;
     
     // Z-index
     const zIndex = 10 - Math.floor(absAdjustedDiff);
     
     // X offset
-    const xOffset = adjustedDiff * (coverSize + gap);
+    const xOffset = adjustedDiff * (coverSize * 0.65 + gap);
     
     return {
-      transform: `translateX(${xOffset}px) translateY(${verticalOffset * yDirection}px) scale(${scale})`,
+      transform: `translateX(${xOffset}px) translateY(${verticalOffset}px) scale(${scale})`,
       opacity,
       zIndex,
+      filter: `brightness(${brightness})`,
       transition: isDragging 
         ? 'none' 
-        : 'transform 600ms cubic-bezier(0.22, 1, 0.36, 1), opacity 400ms ease-out',
+        : 'transform 500ms cubic-bezier(0.22, 1, 0.36, 1), opacity 350ms ease-out, filter 350ms ease-out',
     };
   };
 
+  // Get track title style - moves with center cover
+  const getTitleStyle = () => {
+    const dragOffset = isDragging ? translateX * 0.3 : 0;
+    
+    return {
+      transform: `translateX(${dragOffset}px)`,
+      transition: isDragging ? 'none' : 'transform 500ms cubic-bezier(0.22, 1, 0.36, 1)',
+    };
+  };
+
+  const currentTrack = tracks[currentIndex];
+
   return (
-    <div
-      ref={containerRef}
-      className={cn(
-        'relative w-full h-[400px] md:h-[480px] flex items-center justify-center overflow-hidden touch-pan-x',
-        isDragging ? 'cursor-grabbing' : 'cursor-grab'
-      )}
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-      onMouseDown={onMouseDown}
-      onMouseMove={onMouseMove}
-      onMouseUp={onMouseUp}
-      onMouseLeave={onMouseLeave}
-    >
-      {/* Covers */}
-      <div className="relative flex items-center justify-center">
-        {tracks.map((track, index) => (
-          <div
-            key={track.id}
-            className="absolute gpu-accelerated"
-            style={{
-              ...getCardStyle(index),
-              width: coverSize,
-              height: coverSize,
-            }}
-          >
-            <div 
-              className="cover-card w-full h-full rounded-2xl overflow-hidden shadow-cover select-none"
-            >
-              <img
-                src={track.coverUrl}
-                alt={track.title}
-                className="w-full h-full object-cover pointer-events-none"
-                draggable={false}
-              />
-            </div>
-          </div>
-        ))}
+    <div className="relative w-full h-screen min-h-[600px] max-h-[900px] flex flex-col items-center justify-center bg-cream overflow-hidden">
+      {/* Track Title - above covers, minimalist */}
+      <div 
+        className="absolute top-[15%] md:top-[18%] left-0 right-0 text-center z-20"
+        style={getTitleStyle()}
+      >
+        <h1 className="text-lg md:text-xl font-light tracking-wide text-charcoal/80">
+          {currentTrack?.title}
+        </h1>
+        <p className="text-xs md:text-sm font-light text-muted-foreground mt-1">
+          {currentTrack?.format} · {currentTrack?.year}
+        </p>
+      </div>
+
+      {/* Covers Container */}
+      <div
+        ref={containerRef}
+        className={cn(
+          'relative w-full flex-1 flex items-center justify-center touch-pan-x select-none',
+          isDragging ? 'cursor-grabbing' : 'cursor-grab'
+        )}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseLeave}
+      >
+        {/* Covers */}
+        <div className="relative flex items-center justify-center">
+          {tracks.map((track, index) => {
+            const style = getCardStyle(index);
+            if (style.opacity === 0) return null;
+            
+            return (
+              <div
+                key={track.id}
+                className="absolute gpu-accelerated"
+                style={{
+                  ...style,
+                  width: coverSize,
+                  height: coverSize,
+                }}
+              >
+                <div className="cover-card w-full h-full rounded-2xl overflow-hidden select-none">
+                  <img
+                    src={track.coverUrl}
+                    alt={track.title}
+                    className="w-full h-full object-cover pointer-events-none"
+                    draggable={false}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Drag indicator bar */}
+      <div className="absolute bottom-[12%] left-1/2 -translate-x-1/2 z-20">
+        <div 
+          className={cn(
+            'w-24 h-1 bg-charcoal/20 rounded-full cursor-grab',
+            isDragging && 'cursor-grabbing bg-charcoal/40'
+          )}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          onMouseDown={onMouseDown}
+          onMouseMove={onMouseMove}
+          onMouseUp={onMouseUp}
+          onMouseLeave={onMouseLeave}
+        />
       </div>
     </div>
   );

@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { CoverCarousel } from '@/components/music/CoverCarousel';
-import { TrackTitle } from '@/components/music/TrackTitle';
 import { MiniPlayer } from '@/components/music/MiniPlayer';
 import { MusicGrid } from '@/components/music/MusicGrid';
 import { tracks, Track } from '@/data/tracks';
@@ -49,27 +48,15 @@ const MusicPage = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      {/* Main Hero Section with Carousel */}
-      <main className="pt-20">
-        {/* Track Title */}
-        <section className="pt-10 pb-4">
-          <TrackTitle track={currentTrack} />
-        </section>
-
-        {/* Cover Carousel */}
-        <section className="pb-10">
-          <CoverCarousel
-            tracks={tracks}
-            currentIndex={currentIndex}
-            onIndexChange={handleIndexChange}
-            onTrackChange={handleTrackChange}
-          />
-          
-          {/* Swipe hint */}
-          <p className="text-center text-sm text-muted-foreground mt-4">
-            Свайпните для переключения
-          </p>
-        </section>
+      {/* Main Hero Section with Carousel - Fullscreen */}
+      <main className="pt-16">
+        {/* Cover Carousel with integrated title */}
+        <CoverCarousel
+          tracks={tracks}
+          currentIndex={currentIndex}
+          onIndexChange={handleIndexChange}
+          onTrackChange={handleTrackChange}
+        />
 
         {/* All Music Grid */}
         <MusicGrid 

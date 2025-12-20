@@ -1,6 +1,6 @@
 import { memo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LayoutGrid, List } from 'lucide-react';
+import { LayoutGrid, List, ChevronDown } from 'lucide-react';
 import { Track } from '@/data/tracks';
 import { cn } from '@/lib/utils';
 
@@ -11,11 +11,21 @@ interface MusicGridProps {
 
 type ViewMode = 'grid' | 'list';
 
+const INITIAL_VISIBLE_COUNT = 4;
+
 export const MusicGrid = memo(function MusicGrid({ 
   tracks,
   onTrackClick 
 }: MusicGridProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
+
+  const visibleTracks = tracks.slice(0, visibleCount);
+  const hasMore = visibleCount < tracks.length;
+
+  const handleShowMore = () => {
+    setVisibleCount(prev => Math.min(prev + 4, tracks.length));
+  };
 
   return (
     <section className="py-16 md:py-24 bg-cream">
@@ -47,8 +57,8 @@ export const MusicGrid = memo(function MusicGrid({
 
         {/* Grid View */}
         {viewMode === 'grid' && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-            {tracks.map((track, index) => (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5 md:gap-6">
+            {visibleTracks.map((track, index) => (
               <GridCard 
                 key={track.id} 
                 track={track} 
@@ -61,8 +71,8 @@ export const MusicGrid = memo(function MusicGrid({
 
         {/* List View */}
         {viewMode === 'list' && (
-          <div className="space-y-3">
-            {tracks.map((track, index) => (
+          <div className="space-y-4">
+            {visibleTracks.map((track, index) => (
               <ListItem 
                 key={track.id} 
                 track={track} 
@@ -70,6 +80,26 @@ export const MusicGrid = memo(function MusicGrid({
                 onClick={() => onTrackClick?.(track, index)}
               />
             ))}
+          </div>
+        )}
+
+        {/* Show More Button */}
+        {hasMore && (
+          <div className="flex justify-center mt-10">
+            <button
+              onClick={handleShowMore}
+              className={cn(
+                'flex items-center gap-2 px-8 py-3 rounded-full',
+                'bg-charcoal text-warm-white',
+                'text-sm font-medium',
+                'transition-all duration-200',
+                'hover:bg-charcoal-light hover:scale-105',
+                'active:scale-95'
+              )}
+            >
+              Ещё
+              <ChevronDown size={16} />
+            </button>
           </div>
         )}
       </div>
@@ -87,7 +117,7 @@ interface CardProps {
 const GridCard = memo(function GridCard({ track, index, onClick }: CardProps) {
   return (
     <Link
-      to={`/${track.slug}`}
+      to={`/music/${track.slug}`}
       className="music-card group block animate-fade-in"
       style={{ animationDelay: `${index * 50}ms` }}
       onClick={(e) => {
@@ -121,9 +151,9 @@ const GridCard = memo(function GridCard({ track, index, onClick }: CardProps) {
 const ListItem = memo(function ListItem({ track, index, onClick }: CardProps) {
   return (
     <Link
-      to={`/${track.slug}`}
+      to={`/music/${track.slug}`}
       className={cn(
-        'flex items-center gap-4 p-3 rounded-xl',
+        'flex items-center gap-5 p-4 md:p-5 rounded-xl',
         'bg-card hover:bg-accent transition-colors duration-200',
         'animate-fade-in'
       )}
@@ -136,7 +166,7 @@ const ListItem = memo(function ListItem({ track, index, onClick }: CardProps) {
       }}
     >
       {/* Cover */}
-      <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
+      <div className="w-16 h-16 md:w-20 md:h-20 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
         <img
           src={track.coverUrl}
           alt={track.title}
@@ -147,10 +177,10 @@ const ListItem = memo(function ListItem({ track, index, onClick }: CardProps) {
 
       {/* Info */}
       <div className="flex-1 min-w-0">
-        <h3 className="font-medium text-foreground truncate">
+        <h3 className="font-medium text-foreground text-base md:text-lg truncate">
           {track.title}
         </h3>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm md:text-base text-muted-foreground mt-1">
           {track.format} · {track.year}
         </p>
       </div>
