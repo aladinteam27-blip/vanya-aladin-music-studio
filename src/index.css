@@ -43,8 +43,8 @@
     /* Custom music palette */
     --cream: 40 30% 96%;
     --cream-dark: 35 20% 90%;
-    --charcoal: 0 0% 15%;
-    --charcoal-light: 0 0% 25%;
+    --charcoal: 0 0% 12%;
+    --charcoal-light: 0 0% 22%;
     --warm-white: 45 40% 99%;
     --soft-shadow: 0 0% 0% / 0.06;
     
@@ -57,6 +57,7 @@
     --shadow-md: 0 8px 24px hsl(var(--soft-shadow));
     --shadow-lg: 0 16px 48px hsl(0 0% 0% / 0.1);
     --shadow-cover: 0 20px 60px hsl(0 0% 0% / 0.15);
+    --shadow-player: 0 8px 32px hsl(0 0% 0% / 0.25);
     
     /* Transitions */
     --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -128,7 +129,36 @@
     }
   }
 
-  /* Audio wave animation */
+  /* Audio wave animation - for player (white) */
+  .audio-wave-player {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 16px;
+  }
+
+  .audio-wave-player span {
+    width: 2px;
+    background: hsl(var(--warm-white));
+    border-radius: 1px;
+    animation: wave-player 1s ease-in-out infinite;
+  }
+
+  .audio-wave-player span:nth-child(1) { animation-delay: 0s; height: 6px; }
+  .audio-wave-player span:nth-child(2) { animation-delay: 0.15s; height: 10px; }
+  .audio-wave-player span:nth-child(3) { animation-delay: 0.3s; height: 14px; }
+  .audio-wave-player span:nth-child(4) { animation-delay: 0.45s; height: 8px; }
+
+  @keyframes wave-player {
+    0%, 100% {
+      transform: scaleY(0.4);
+    }
+    50% {
+      transform: scaleY(1);
+    }
+  }
+
+  /* Audio wave animation - default */
   .audio-wave {
     display: flex;
     align-items: center;
