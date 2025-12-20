@@ -23,54 +23,31 @@ export const MiniPlayer = memo(function MiniPlayer({
       <button
         onClick={onToggle}
         className={cn(
-          'relative flex items-center justify-center',
-          'w-14 h-14 rounded-full',
+          'flex items-center gap-2.5 px-4 py-3 rounded-full',
           'bg-charcoal text-warm-white',
           'shadow-[0_8px_32px_rgba(0,0,0,0.3)]',
-          'transition-none' // No hover scale/pulse on player body
+          'transition-opacity duration-200',
+          'hover:opacity-90'
         )}
         aria-label={isPlaying ? 'Pause' : 'Play'}
       >
-        {/* Progress ring */}
-        <svg 
-          className="absolute inset-0 w-full h-full -rotate-90"
-          viewBox="0 0 56 56"
-        >
-          <circle
-            cx="28"
-            cy="28"
-            r="25"
-            fill="none"
-            stroke="rgba(255,255,255,0.15)"
-            strokeWidth="2"
-          />
-          <circle
-            cx="28"
-            cy="28"
-            r="25"
-            fill="none"
-            stroke="rgba(255,255,255,0.6)"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeDasharray={`${2 * Math.PI * 25}`}
-            strokeDashoffset={`${2 * Math.PI * 25 * (1 - progress / 100)}`}
-            className="transition-all duration-100 ease-linear"
-          />
-        </svg>
-
-        {/* Play icon or Wave animation */}
-        <span className="relative z-10 flex items-center justify-center">
-          {isPlaying ? (
-            <div className="audio-wave-player">
-              <span />
-              <span />
-              <span />
-              <span />
-            </div>
-          ) : (
-            <Play size={22} fill="currentColor" className="ml-0.5" />
-          )}
+        {/* Play icon */}
+        <span className="w-5 h-5 flex items-center justify-center border border-white/30 rounded-full">
+          <Play size={10} fill="currentColor" className="ml-0.5" />
         </span>
+        
+        {/* Waveform visualization */}
+        <div className={cn(
+          "flex items-center gap-[2px] h-5",
+          isPlaying ? "audio-wave-player" : "opacity-50"
+        )}>
+          <span className={cn(!isPlaying && "!animate-none")} style={{ height: '6px' }} />
+          <span className={cn(!isPlaying && "!animate-none")} style={{ height: '12px' }} />
+          <span className={cn(!isPlaying && "!animate-none")} style={{ height: '8px' }} />
+          <span className={cn(!isPlaying && "!animate-none")} style={{ height: '14px' }} />
+          <span className={cn(!isPlaying && "!animate-none")} style={{ height: '6px' }} />
+          <span className={cn(!isPlaying && "!animate-none")} style={{ height: '10px' }} />
+        </div>
       </button>
     </div>
   );

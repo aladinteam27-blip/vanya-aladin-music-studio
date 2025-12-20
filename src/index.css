@@ -141,25 +141,27 @@
     }
   }
 
-  /* Audio wave animation - for player (white) */
+  /* Audio wave animation - for player (white) - Lady Gaga style */
   .audio-wave-player {
     display: flex;
     align-items: center;
     gap: 2px;
-    height: 16px;
+    height: 20px;
   }
 
   .audio-wave-player span {
     width: 2px;
     background: hsl(var(--warm-white));
     border-radius: 1px;
-    animation: wave-player 1s ease-in-out infinite;
+    animation: wave-player 0.8s ease-in-out infinite;
   }
 
-  .audio-wave-player span:nth-child(1) { animation-delay: 0s; height: 6px; }
-  .audio-wave-player span:nth-child(2) { animation-delay: 0.15s; height: 10px; }
-  .audio-wave-player span:nth-child(3) { animation-delay: 0.3s; height: 14px; }
-  .audio-wave-player span:nth-child(4) { animation-delay: 0.45s; height: 8px; }
+  .audio-wave-player span:nth-child(1) { animation-delay: 0s; }
+  .audio-wave-player span:nth-child(2) { animation-delay: 0.1s; }
+  .audio-wave-player span:nth-child(3) { animation-delay: 0.2s; }
+  .audio-wave-player span:nth-child(4) { animation-delay: 0.3s; }
+  .audio-wave-player span:nth-child(5) { animation-delay: 0.4s; }
+  .audio-wave-player span:nth-child(6) { animation-delay: 0.5s; }
 
   @keyframes wave-player {
     0%, 100% {

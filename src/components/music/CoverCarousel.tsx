@@ -25,8 +25,8 @@ export const CoverCarousel = memo(function CoverCarousel({
 }: CoverCarouselProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [isProgressDragging, setIsProgressDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [translateX, setTranslateX] = useState(0);
   const [velocity, setVelocity] = useState(0);
@@ -41,12 +41,21 @@ export const CoverCarousel = memo(function CoverCarousel({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Cover dimensions - Lady Gaga style: large center, partial next visible
+  // Scroll active tab into view on mobile
+  useEffect(() => {
+    if (isMobile && tabsRef.current) {
+      const activeTab = tabsRef.current.children[currentIndex] as HTMLElement;
+      if (activeTab) {
+        activeTab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
+    }
+  }, [currentIndex, isMobile]);
+
+  // Cover dimensions - like Lady Gaga: large center
   const coverWidth = typeof window !== 'undefined' 
-    ? Math.min(window.innerWidth * (isMobile ? 0.75 : 0.45), isMobile ? 340 : 500) 
+    ? Math.min(window.innerWidth * (isMobile ? 0.8 : 0.4), isMobile ? 350 : 520) 
     : 400;
   const coverHeight = coverWidth;
-  const gap = isMobile ? 20 : 40;
 
   // Handle drag start
   const handleDragStart = useCallback((clientX: number) => {
@@ -56,7 +65,7 @@ export const CoverCarousel = memo(function CoverCarousel({
     lastTime.current = Date.now();
   }, [translateX]);
 
-  // Handle drag move with momentum tracking
+  // Handle drag move
   const handleDragMove = useCallback((clientX: number) => {
     if (!isDragging) return;
     
@@ -72,8 +81,7 @@ export const CoverCarousel = memo(function CoverCarousel({
     lastTime.current = currentTime;
     
     const newTranslateX = clientX - startX;
-    // Limit drag to prevent overscroll
-    const maxDrag = coverWidth * 0.6;
+    const maxDrag = coverWidth * 0.5;
     setTranslateX(Math.max(-maxDrag, Math.min(maxDrag, newTranslateX)));
   }, [isDragging, startX, coverWidth]);
 
@@ -82,12 +90,11 @@ export const CoverCarousel = memo(function CoverCarousel({
     if (!isDragging) return;
     setIsDragging(false);
     
-    const threshold = coverWidth * 0.15;
-    const velocityThreshold = 0.3;
+    const threshold = coverWidth * 0.12;
+    const velocityThreshold = 0.25;
     
     let newIndex = currentIndex;
     
-    // Check velocity first for flick gesture
     if (Math.abs(velocity) > velocityThreshold) {
       newIndex = velocity > 0 
         ? Math.max(0, currentIndex - 1) 
@@ -100,25 +107,21 @@ export const CoverCarousel = memo(function CoverCarousel({
     
     if (newIndex !== currentIndex) {
       onIndexChange(newIndex);
-      if (onTrackChange) {
-        onTrackChange(tracks[newIndex]);
-      }
+      if (onTrackChange) onTrackChange(tracks[newIndex]);
     }
     
     setTranslateX(0);
     setVelocity(0);
   }, [isDragging, velocity, translateX, currentIndex, tracks, coverWidth, onIndexChange, onTrackChange]);
 
-  // Progress bar interaction
+  // Progress bar click
   const handleProgressClick = useCallback((clientX: number) => {
     if (!progressRef.current) return;
     const rect = progressRef.current.getBoundingClientRect();
     const progress = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
     const newIndex = Math.round(progress * (tracks.length - 1));
     onIndexChange(newIndex);
-    if (onTrackChange) {
-      onTrackChange(tracks[newIndex]);
-    }
+    if (onTrackChange) onTrackChange(tracks[newIndex]);
   }, [tracks, onIndexChange, onTrackChange]);
 
   // Touch events
@@ -152,19 +155,14 @@ export const CoverCarousel = memo(function CoverCarousel({
     if (isDragging) handleDragEnd();
   }, [isDragging, handleDragEnd]);
 
-  // Progress bar handlers
+  // Progress mouse handler
   const onProgressMouseDown = useCallback((e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsProgressDragging(true);
     handleProgressClick(e.clientX);
     
-    const handleMove = (ev: globalThis.MouseEvent) => {
-      handleProgressClick(ev.clientX);
-    };
-    
+    const handleMove = (ev: globalThis.MouseEvent) => handleProgressClick(ev.clientX);
     const handleUp = () => {
-      setIsProgressDragging(false);
       document.removeEventListener('mousemove', handleMove);
       document.removeEventListener('mouseup', handleUp);
     };
@@ -173,83 +171,116 @@ export const CoverCarousel = memo(function CoverCarousel({
     document.addEventListener('mouseup', handleUp);
   }, [handleProgressClick]);
 
-  const onProgressTouchStart = useCallback((e: TouchEvent) => {
-    e.stopPropagation();
-    handleProgressClick(e.touches[0].clientX);
-  }, [handleProgressClick]);
-
-  // Calculate cover position - Lady Gaga style: large center, peek of next
+  // Calculate cover styles - Lady Gaga style
   const getCardStyle = (index: number): React.CSSProperties | null => {
     const diff = index - currentIndex;
     const dragProgress = isDragging ? translateX / coverWidth : 0;
     const adjustedDiff = diff - dragProgress;
     
-    // Show current, next, and previous
-    if (Math.abs(adjustedDiff) > 1.8) {
+    // Only show current and next
+    if (adjustedDiff < -0.8 || adjustedDiff > 1.8) {
       return null;
     }
     
     const absAdjustedDiff = Math.abs(adjustedDiff);
     const isCenter = absAdjustedDiff < 0.2;
     
-    // X position: center is at 0, sides are offset
-    const baseOffset = adjustedDiff * (coverWidth + gap);
+    // Positioning like Lady Gaga: next cover peeks from right, shifted down
+    let xOffset = 0;
+    let yOffset = 0;
+    let scale = 1;
+    let opacity = 1;
     
-    // Scale: center full size, sides slightly smaller
-    const scale = isCenter ? 1 : Math.max(0.85, 1 - absAdjustedDiff * 0.15);
+    if (isCenter) {
+      xOffset = adjustedDiff * coverWidth * 1.1;
+      scale = 1;
+      opacity = 1;
+    } else {
+      // Next cover: to the right and slightly lower
+      xOffset = coverWidth * 0.85 + (adjustedDiff - 1) * coverWidth * 1.1;
+      yOffset = isMobile ? 180 : 220; // Shifted down like Lady Gaga
+      scale = 0.9;
+      opacity = 0.85;
+    }
     
-    // Opacity: center bright, sides dimmed
-    const opacity = isCenter ? 1 : Math.max(0.4, 1 - absAdjustedDiff * 0.6);
-    
-    // Z-index
-    const zIndex = 10 - Math.abs(Math.round(adjustedDiff));
+    const zIndex = isCenter ? 10 : 5;
     
     return {
-      transform: `translateX(${baseOffset}px) scale(${scale})`,
+      transform: `translateX(${xOffset}px) translateY(${yOffset}px) scale(${scale})`,
       opacity,
       zIndex,
-      transition: isDragging 
-        ? 'none' 
-        : 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease-out',
       width: coverWidth,
       height: coverHeight,
       willChange: 'transform, opacity',
+      transition: isDragging 
+        ? 'none' 
+        : 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease-out',
     };
   };
 
-  const currentTrack = tracks[currentIndex];
   const progressPercent = tracks.length > 1 ? (currentIndex / (tracks.length - 1)) * 100 : 0;
 
+  const handleTrackSelect = (index: number) => {
+    onIndexChange(index);
+    if (onTrackChange) onTrackChange(tracks[index]);
+  };
+
   return (
-    <div className="relative w-full h-screen min-h-[600px] max-h-[950px] flex flex-col bg-cream overflow-hidden">
-      {/* Left sidebar with track names - desktop only */}
-      <div className="hidden md:flex absolute left-8 top-1/2 -translate-y-1/2 z-30 flex-col gap-2">
-        {tracks.map((track, index) => (
-          <button
-            key={track.id}
-            onClick={() => {
-              onIndexChange(index);
-              if (onTrackChange) onTrackChange(track);
-            }}
-            className={cn(
-              'text-left text-sm font-medium transition-all duration-300',
-              'hover:text-charcoal',
-              index === currentIndex 
-                ? 'text-charcoal border border-charcoal px-2 py-0.5 rounded' 
-                : 'text-charcoal/40'
-            )}
+    <div className="relative w-full h-screen min-h-[650px] max-h-[950px] flex flex-col bg-cream overflow-hidden">
+      
+      {/* Mobile: Horizontal track tabs above cover */}
+      {isMobile && (
+        <div className="pt-20 pb-4 px-4">
+          <div 
+            ref={tabsRef}
+            className="flex gap-3 overflow-x-auto hide-scrollbar"
           >
-            {track.title}
-          </button>
-        ))}
-      </div>
+            {tracks.map((track, index) => (
+              <button
+                key={track.id}
+                onClick={() => handleTrackSelect(index)}
+                className={cn(
+                  'flex-shrink-0 text-sm font-medium whitespace-nowrap transition-all duration-300',
+                  'px-3 py-1.5 rounded-sm',
+                  index === currentIndex 
+                    ? 'border border-charcoal text-charcoal' 
+                    : 'text-charcoal/40 hover:text-charcoal/70'
+                )}
+              >
+                {track.title}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Desktop: Left sidebar with track names */}
+      {!isMobile && (
+        <div className="absolute left-6 lg:left-12 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-1.5">
+          {tracks.map((track, index) => (
+            <button
+              key={track.id}
+              onClick={() => handleTrackSelect(index)}
+              className={cn(
+                'text-left text-sm font-medium transition-all duration-300',
+                'hover:text-charcoal px-2 py-0.5',
+                index === currentIndex 
+                  ? 'border border-charcoal text-charcoal' 
+                  : 'text-charcoal/40'
+              )}
+            >
+              {track.title}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Main carousel area */}
-      <div className="flex-1 flex items-center justify-center pt-20">
+      <div className={cn("flex-1 flex items-center justify-center", isMobile ? "pt-4" : "pt-16")}>
         <div
           ref={containerRef}
           className={cn(
-            'relative flex items-center justify-center w-full h-full touch-pan-x select-none',
+            'relative w-full h-full touch-pan-x select-none',
             isDragging ? 'cursor-grabbing' : 'cursor-grab'
           )}
           onTouchStart={onTouchStart}
@@ -260,8 +291,11 @@ export const CoverCarousel = memo(function CoverCarousel({
           onMouseUp={onMouseUp}
           onMouseLeave={onMouseLeave}
         >
-          {/* Covers */}
-          <div className="relative flex items-center justify-center">
+          {/* Covers container - centered */}
+          <div 
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+            style={{ width: coverWidth, height: coverHeight }}
+          >
             {tracks.map((track, index) => {
               const style = getCardStyle(index);
               if (!style) return null;
@@ -269,15 +303,12 @@ export const CoverCarousel = memo(function CoverCarousel({
               return (
                 <div
                   key={track.id}
-                  className="absolute"
+                  className="absolute top-0 left-0"
                   style={style}
                 >
-                  {/* Square cover - no border radius */}
                   <div 
                     className="w-full h-full overflow-hidden select-none"
-                    style={{
-                      boxShadow: '0 25px 80px -20px rgba(0,0,0,0.3)',
-                    }}
+                    style={{ boxShadow: '0 30px 90px -25px rgba(0,0,0,0.25)' }}
                   >
                     <img
                       src={track.coverUrl}
@@ -293,35 +324,21 @@ export const CoverCarousel = memo(function CoverCarousel({
         </div>
       </div>
 
-      {/* Track title - mobile only, under carousel */}
-      <div className="md:hidden text-center pb-4">
-        <h2 className="text-xl font-semibold text-charcoal">
-          {currentTrack?.title}
-        </h2>
-      </div>
-
-      {/* Progress bar - like Lady Gaga site */}
-      <div className="absolute bottom-[8%] left-1/2 -translate-x-1/2 z-20 w-[80%] max-w-[600px]">
+      {/* Progress bar - bottom */}
+      <div className="absolute bottom-[10%] left-1/2 -translate-x-1/2 z-20 w-[75%] max-w-[550px]">
         <div
           ref={progressRef}
-          className="relative h-[2px] bg-charcoal/20 cursor-pointer"
+          className="relative h-[2px] bg-charcoal/15 cursor-pointer"
           onMouseDown={onProgressMouseDown}
-          onTouchStart={onProgressTouchStart}
+          onTouchStart={(e) => {
+            e.stopPropagation();
+            handleProgressClick(e.touches[0].clientX);
+          }}
         >
-          {/* Active progress */}
+          {/* Active segment */}
           <div 
-            className="absolute top-0 left-0 h-full bg-charcoal transition-all duration-300 ease-out"
-            style={{ width: `${progressPercent}%` }}
-          />
-          
-          {/* Drag handle - subtle */}
-          <div
-            className={cn(
-              'absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-charcoal',
-              'transition-transform duration-150',
-              isProgressDragging && 'scale-125'
-            )}
-            style={{ left: `calc(${progressPercent}% - 6px)` }}
+            className="absolute top-0 left-0 h-full bg-charcoal/70 transition-all duration-300 ease-out"
+            style={{ width: `${Math.max(progressPercent, 2)}%` }}
           />
         </div>
       </div>
