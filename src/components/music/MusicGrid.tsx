@@ -17,15 +17,13 @@ export const MusicGrid = memo(function MusicGrid({
 }: MusicGridProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [isMobile, setIsMobile] = useState(false);
-  
-  // Desktop: 2 cards, Mobile: 4 cards initially
-  const getInitialCount = () => isMobile ? 4 : 2;
   const [visibleCount, setVisibleCount] = useState(2);
 
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
+      // Mobile: 4 blocks, Desktop: 2 blocks
       setVisibleCount(mobile ? 4 : 2);
     };
     checkMobile();
@@ -42,11 +40,11 @@ export const MusicGrid = memo(function MusicGrid({
   };
 
   return (
-    <section className="py-16 md:py-24 bg-cream">
-      <div className="container mx-auto px-6">
+    <section className="py-12 md:py-20 bg-cream">
+      <div className="container mx-auto px-4 md:px-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-10">
-          <h2 className="text-2xl md:text-3xl font-semibold text-foreground">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-xl md:text-2xl font-semibold text-foreground">
             Вся музыка
           </h2>
 
@@ -55,28 +53,34 @@ export const MusicGrid = memo(function MusicGrid({
             <button
               onClick={() => setViewMode('grid')}
               className={cn('view-toggle-btn', viewMode === 'grid' && 'active')}
-              aria-label="Grid view"
+              aria-label="Вид сетка"
             >
-              <LayoutGrid size={18} />
+              <LayoutGrid size={16} />
             </button>
             <button
               onClick={() => setViewMode('list')}
               className={cn('view-toggle-btn', viewMode === 'list' && 'active')}
-              aria-label="List view"
+              aria-label="Вид список"
             >
-              <List size={18} />
+              <List size={16} />
             </button>
           </div>
         </div>
 
-        {/* Grid View - 2 large cards on desktop, 2 columns mobile */}
+        {/* Grid View - 2 columns on both mobile and desktop */}
         {viewMode === 'grid' && (
-          <div className="grid grid-cols-2 gap-4 md:gap-8">
+          <div className={cn(
+            "grid gap-3 md:gap-6",
+            isMobile 
+              ? "grid-cols-2" 
+              : "grid-cols-2 max-w-3xl mx-auto"
+          )}>
             {visibleTracks.map((track, index) => (
               <GridCard 
                 key={track.id} 
                 track={track} 
                 index={index}
+                isMobile={isMobile}
                 onClick={() => onTrackClick?.(track, index)}
               />
             ))}
@@ -85,7 +89,7 @@ export const MusicGrid = memo(function MusicGrid({
 
         {/* List View */}
         {viewMode === 'list' && (
-          <div className="space-y-4">
+          <div className="space-y-3 max-w-3xl mx-auto">
             {visibleTracks.map((track, index) => (
               <ListItem 
                 key={track.id} 
@@ -99,11 +103,11 @@ export const MusicGrid = memo(function MusicGrid({
 
         {/* Show More Button */}
         {hasMore && (
-          <div className="flex justify-center mt-10">
+          <div className="flex justify-center mt-8">
             <button
               onClick={handleShowMore}
               className={cn(
-                'flex items-center gap-2 px-8 py-3 rounded-full',
+                'flex items-center gap-2 px-6 py-2.5 rounded-full',
                 'bg-charcoal text-warm-white',
                 'text-sm font-medium',
                 'transition-all duration-200',
@@ -112,7 +116,7 @@ export const MusicGrid = memo(function MusicGrid({
               )}
             >
               Ещё
-              <ChevronDown size={16} />
+              <ChevronDown size={14} />
             </button>
           </div>
         )}
@@ -121,62 +125,19 @@ export const MusicGrid = memo(function MusicGrid({
   );
 });
 
-// Grid Card Component - Large cards with animation
+// Grid Card Component - Compact, neat sizing
 interface CardProps {
   track: Track;
   index: number;
+  isMobile?: boolean;
   onClick?: () => void;
 }
 
-const GridCard = memo(function GridCard({ track, index, onClick }: CardProps) {
+const GridCard = memo(function GridCard({ track, index, isMobile, onClick }: CardProps) {
   return (
     <Link
       to={`/music/${track.slug}`}
       className="music-card group block"
-      style={{ 
-        animationName: 'fadeInUp',
-        animationDuration: '0.5s',
-        animationDelay: `${index * 100}ms`,
-        animationFillMode: 'both',
-        animationTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)'
-      }}
-      onClick={(e) => {
-        if (onClick) {
-          e.preventDefault();
-          onClick();
-        }
-      }}
-    >
-      {/* Cover with hover animation - rounded only here */}
-      <div className="aspect-square overflow-hidden rounded-xl bg-muted">
-        <img
-          src={track.coverUrl}
-          alt={track.title}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          loading="lazy"
-        />
-      </div>
-      <div className="p-3 md:p-4">
-        <h3 className="font-medium text-foreground truncate text-base md:text-lg">
-          {track.title}
-        </h3>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          {track.format} · {track.year}
-        </p>
-      </div>
-    </Link>
-  );
-});
-
-// List Item Component - Larger with more padding
-const ListItem = memo(function ListItem({ track, index, onClick }: CardProps) {
-  return (
-    <Link
-      to={`/music/${track.slug}`}
-      className={cn(
-        'flex items-center gap-5 p-5 md:p-6 rounded-xl',
-        'bg-card hover:bg-accent transition-colors duration-200'
-      )}
       style={{ 
         animationName: 'fadeInUp',
         animationDuration: '0.4s',
@@ -191,11 +152,58 @@ const ListItem = memo(function ListItem({ track, index, onClick }: CardProps) {
         }
       }}
     >
-      {/* Cover - rounded in collection */}
-      <div className="w-20 h-20 md:w-24 md:h-24 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
+      {/* Cover with hover animation */}
+      <div className={cn(
+        "overflow-hidden rounded-lg bg-muted",
+        isMobile ? "aspect-square" : "aspect-square"
+      )}>
         <img
           src={track.coverUrl}
-          alt={track.title}
+          alt={`Обложка трека "${track.title}" - ${track.format} ${track.year} года, исполнитель Ваня Аладин`}
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          loading="lazy"
+        />
+      </div>
+      <div className="p-2 md:p-3">
+        <h3 className="font-medium text-foreground truncate text-sm md:text-base">
+          {track.title}
+        </h3>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {track.format} · {track.year}
+        </p>
+      </div>
+    </Link>
+  );
+});
+
+// List Item Component
+const ListItem = memo(function ListItem({ track, index, onClick }: CardProps) {
+  return (
+    <Link
+      to={`/music/${track.slug}`}
+      className={cn(
+        'flex items-center gap-4 p-3 md:p-4 rounded-lg',
+        'bg-card hover:bg-accent transition-colors duration-200'
+      )}
+      style={{ 
+        animationName: 'fadeInUp',
+        animationDuration: '0.3s',
+        animationDelay: `${index * 60}ms`,
+        animationFillMode: 'both',
+        animationTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)'
+      }}
+      onClick={(e) => {
+        if (onClick) {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+    >
+      {/* Cover */}
+      <div className="w-14 h-14 md:w-16 md:h-16 rounded-md overflow-hidden flex-shrink-0 bg-muted">
+        <img
+          src={track.coverUrl}
+          alt={`Обложка трека "${track.title}" - ${track.format} ${track.year} года, исполнитель Ваня Аладин`}
           className="w-full h-full object-cover"
           loading="lazy"
         />
@@ -203,10 +211,10 @@ const ListItem = memo(function ListItem({ track, index, onClick }: CardProps) {
 
       {/* Info */}
       <div className="flex-1 min-w-0">
-        <h3 className="font-medium text-foreground text-lg md:text-xl truncate">
+        <h3 className="font-medium text-foreground text-sm md:text-base truncate">
           {track.title}
         </h3>
-        <p className="text-sm md:text-base text-muted-foreground mt-1">
+        <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
           {track.format} · {track.year}
         </p>
       </div>

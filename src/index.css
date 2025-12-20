@@ -141,34 +141,37 @@
     }
   }
 
-  /* Audio wave animation - for player (white) - Lady Gaga style */
-  .audio-wave-player {
+  /* Audio wave animation - smooth, no jerking */
+  .audio-wave-smooth {
     display: flex;
     align-items: center;
     gap: 2px;
-    height: 20px;
+    height: 24px;
   }
 
-  .audio-wave-player span {
-    width: 2px;
+  .audio-wave-smooth span {
+    width: 2.5px;
     background: hsl(var(--warm-white));
-    border-radius: 1px;
-    animation: wave-player 0.8s ease-in-out infinite;
+    border-radius: 2px;
+    animation: wave-smooth 1.2s ease-in-out infinite;
   }
 
-  .audio-wave-player span:nth-child(1) { animation-delay: 0s; }
-  .audio-wave-player span:nth-child(2) { animation-delay: 0.1s; }
-  .audio-wave-player span:nth-child(3) { animation-delay: 0.2s; }
-  .audio-wave-player span:nth-child(4) { animation-delay: 0.3s; }
-  .audio-wave-player span:nth-child(5) { animation-delay: 0.4s; }
-  .audio-wave-player span:nth-child(6) { animation-delay: 0.5s; }
+  .audio-wave-smooth span:nth-child(1) { animation-delay: 0s; height: 8px; }
+  .audio-wave-smooth span:nth-child(2) { animation-delay: 0.15s; height: 16px; }
+  .audio-wave-smooth span:nth-child(3) { animation-delay: 0.3s; height: 10px; }
+  .audio-wave-smooth span:nth-child(4) { animation-delay: 0.45s; height: 18px; }
+  .audio-wave-smooth span:nth-child(5) { animation-delay: 0.6s; height: 7px; }
+  .audio-wave-smooth span:nth-child(6) { animation-delay: 0.75s; height: 12px; }
+  .audio-wave-smooth span:nth-child(7) { animation-delay: 0.9s; height: 6px; }
 
-  @keyframes wave-player {
+  @keyframes wave-smooth {
     0%, 100% {
-      transform: scaleY(0.4);
+      transform: scaleY(0.5);
+      opacity: 0.7;
     }
     50% {
       transform: scaleY(1);
+      opacity: 1;
     }
   }
 
