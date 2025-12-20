@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Play, Pause } from 'lucide-react';
+import { Play } from 'lucide-react';
 import { Track } from '@/data/tracks';
 import { cn } from '@/lib/utils';
 
@@ -23,24 +23,43 @@ export const MiniPlayer = memo(function MiniPlayer({
       <button
         onClick={onToggle}
         className={cn(
-          'relative flex items-center gap-3 px-5 py-3 rounded-full',
-          'bg-[hsl(0,0%,12%)] text-[hsl(45,40%,99%)]',
-          'shadow-[0_8px_32px_rgba(0,0,0,0.25)]',
-          'transition-transform duration-200 ease-out',
-          'hover:scale-105 active:scale-95'
+          'relative flex items-center justify-center',
+          'w-14 h-14 rounded-full',
+          'bg-charcoal text-warm-white',
+          'shadow-[0_8px_32px_rgba(0,0,0,0.3)]',
+          'transition-none' // No hover scale/pulse on player body
         )}
         aria-label={isPlaying ? 'Pause' : 'Play'}
       >
-        {/* Progress indicator */}
-        <div className="absolute bottom-0 left-0 h-0.5 bg-white/20 rounded-full overflow-hidden w-full">
-          <div 
-            className="h-full bg-white/60 transition-all duration-100 ease-linear"
-            style={{ width: `${progress}%` }}
+        {/* Progress ring */}
+        <svg 
+          className="absolute inset-0 w-full h-full -rotate-90"
+          viewBox="0 0 56 56"
+        >
+          <circle
+            cx="28"
+            cy="28"
+            r="25"
+            fill="none"
+            stroke="rgba(255,255,255,0.15)"
+            strokeWidth="2"
           />
-        </div>
+          <circle
+            cx="28"
+            cy="28"
+            r="25"
+            fill="none"
+            stroke="rgba(255,255,255,0.6)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeDasharray={`${2 * Math.PI * 25}`}
+            strokeDashoffset={`${2 * Math.PI * 25 * (1 - progress / 100)}`}
+            className="transition-all duration-100 ease-linear"
+          />
+        </svg>
 
-        {/* Play/Pause icon or Wave animation */}
-        <span className="relative z-10 w-5 h-5 flex items-center justify-center">
+        {/* Play icon or Wave animation */}
+        <span className="relative z-10 flex items-center justify-center">
           {isPlaying ? (
             <div className="audio-wave-player">
               <span />
@@ -49,13 +68,8 @@ export const MiniPlayer = memo(function MiniPlayer({
               <span />
             </div>
           ) : (
-            <Play size={18} fill="currentColor" className="ml-0.5" />
+            <Play size={22} fill="currentColor" className="ml-0.5" />
           )}
-        </span>
-
-        {/* Track title (truncated) */}
-        <span className="relative z-10 text-sm font-normal max-w-[100px] truncate">
-          {track.title}
         </span>
       </button>
     </div>

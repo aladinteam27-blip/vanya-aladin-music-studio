@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { LayoutGrid, List, ChevronDown } from 'lucide-react';
 import { Track } from '@/data/tracks';
@@ -11,20 +11,34 @@ interface MusicGridProps {
 
 type ViewMode = 'grid' | 'list';
 
-const INITIAL_VISIBLE_COUNT = 4;
-
 export const MusicGrid = memo(function MusicGrid({ 
   tracks,
   onTrackClick 
 }: MusicGridProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Desktop: 2 cards, Mobile: 4 cards initially
+  const getInitialCount = () => isMobile ? 4 : 2;
+  const [visibleCount, setVisibleCount] = useState(2);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      setVisibleCount(mobile ? 4 : 2);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const visibleTracks = tracks.slice(0, visibleCount);
   const hasMore = visibleCount < tracks.length;
 
   const handleShowMore = () => {
-    setVisibleCount(prev => Math.min(prev + 4, tracks.length));
+    const increment = isMobile ? 4 : 2;
+    setVisibleCount(prev => Math.min(prev + increment, tracks.length));
   };
 
   return (
@@ -55,9 +69,9 @@ export const MusicGrid = memo(function MusicGrid({
           </div>
         </div>
 
-        {/* Grid View */}
+        {/* Grid View - 2 large cards on desktop, 2 columns mobile */}
         {viewMode === 'grid' && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-5 md:gap-6">
+          <div className="grid grid-cols-2 gap-4 md:gap-8">
             {visibleTracks.map((track, index) => (
               <GridCard 
                 key={track.id} 
@@ -107,7 +121,7 @@ export const MusicGrid = memo(function MusicGrid({
   );
 });
 
-// Grid Card Component
+// Grid Card Component - Large cards with animation
 interface CardProps {
   track: Track;
   index: number;
@@ -118,8 +132,14 @@ const GridCard = memo(function GridCard({ track, index, onClick }: CardProps) {
   return (
     <Link
       to={`/music/${track.slug}`}
-      className="music-card group block animate-fade-in"
-      style={{ animationDelay: `${index * 50}ms` }}
+      className="music-card group block"
+      style={{ 
+        animationName: 'fadeInUp',
+        animationDuration: '0.5s',
+        animationDelay: `${index * 100}ms`,
+        animationFillMode: 'both',
+        animationTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)'
+      }}
       onClick={(e) => {
         if (onClick) {
           e.preventDefault();
@@ -127,6 +147,7 @@ const GridCard = memo(function GridCard({ track, index, onClick }: CardProps) {
         }
       }}
     >
+      {/* Cover with hover animation - rounded only here */}
       <div className="aspect-square overflow-hidden rounded-xl bg-muted">
         <img
           src={track.coverUrl}
@@ -135,8 +156,8 @@ const GridCard = memo(function GridCard({ track, index, onClick }: CardProps) {
           loading="lazy"
         />
       </div>
-      <div className="p-3">
-        <h3 className="font-medium text-foreground truncate">
+      <div className="p-3 md:p-4">
+        <h3 className="font-medium text-foreground truncate text-base md:text-lg">
           {track.title}
         </h3>
         <p className="text-sm text-muted-foreground mt-0.5">
@@ -147,17 +168,22 @@ const GridCard = memo(function GridCard({ track, index, onClick }: CardProps) {
   );
 });
 
-// List Item Component
+// List Item Component - Larger with more padding
 const ListItem = memo(function ListItem({ track, index, onClick }: CardProps) {
   return (
     <Link
       to={`/music/${track.slug}`}
       className={cn(
-        'flex items-center gap-5 p-4 md:p-5 rounded-xl',
-        'bg-card hover:bg-accent transition-colors duration-200',
-        'animate-fade-in'
+        'flex items-center gap-5 p-5 md:p-6 rounded-xl',
+        'bg-card hover:bg-accent transition-colors duration-200'
       )}
-      style={{ animationDelay: `${index * 30}ms` }}
+      style={{ 
+        animationName: 'fadeInUp',
+        animationDuration: '0.4s',
+        animationDelay: `${index * 80}ms`,
+        animationFillMode: 'both',
+        animationTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)'
+      }}
       onClick={(e) => {
         if (onClick) {
           e.preventDefault();
@@ -165,8 +191,8 @@ const ListItem = memo(function ListItem({ track, index, onClick }: CardProps) {
         }
       }}
     >
-      {/* Cover */}
-      <div className="w-16 h-16 md:w-20 md:h-20 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
+      {/* Cover - rounded in collection */}
+      <div className="w-20 h-20 md:w-24 md:h-24 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
         <img
           src={track.coverUrl}
           alt={track.title}
@@ -177,7 +203,7 @@ const ListItem = memo(function ListItem({ track, index, onClick }: CardProps) {
 
       {/* Info */}
       <div className="flex-1 min-w-0">
-        <h3 className="font-medium text-foreground text-base md:text-lg truncate">
+        <h3 className="font-medium text-foreground text-lg md:text-xl truncate">
           {track.title}
         </h3>
         <p className="text-sm md:text-base text-muted-foreground mt-1">
