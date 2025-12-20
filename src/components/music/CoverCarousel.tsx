@@ -3,6 +3,7 @@ import {
   useRef, 
   useCallback, 
   memo,
+  useEffect,
   type TouchEvent,
   type MouseEvent 
 } from 'react';
@@ -23,21 +24,37 @@ export const CoverCarousel = memo(function CoverCarousel({
   onTrackChange,
 }: CoverCarouselProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const sliderRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isSliderDragging, setIsSliderDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [translateX, setTranslateX] = useState(0);
+  const [sliderProgress, setSliderProgress] = useState(0);
   const [velocity, setVelocity] = useState(0);
   const lastX = useRef(0);
   const lastTime = useRef(Date.now());
+  const [isMobile, setIsMobile] = useState(false);
 
-  // Cover size based on viewport - larger for fullscreen feel
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Update slider progress when index changes
+  useEffect(() => {
+    if (!isSliderDragging) {
+      setSliderProgress(currentIndex / (tracks.length - 1));
+    }
+  }, [currentIndex, tracks.length, isSliderDragging]);
+
+  // Cover size based on viewport
   const coverSize = typeof window !== 'undefined' 
-    ? Math.min(window.innerWidth * 0.55, 380) 
+    ? Math.min(window.innerWidth * (isMobile ? 0.7 : 0.35), isMobile ? 300 : 380) 
     : 320;
-  const sideCoverSize = coverSize * 0.7;
-  const gap = 40;
 
-  // Handle drag start
+  // Handle cover drag start
   const handleDragStart = useCallback((clientX: number) => {
     setIsDragging(true);
     setStartX(clientX - translateX);
@@ -45,7 +62,7 @@ export const CoverCarousel = memo(function CoverCarousel({
     lastTime.current = Date.now();
   }, [translateX]);
 
-  // Handle drag move
+  // Handle cover drag move
   const handleDragMove = useCallback((clientX: number) => {
     if (!isDragging) return;
     
@@ -64,7 +81,7 @@ export const CoverCarousel = memo(function CoverCarousel({
     setTranslateX(newTranslateX);
   }, [isDragging, startX]);
 
-  // Handle drag end with inertia
+  // Handle cover drag end with inertia
   const handleDragEnd = useCallback(() => {
     if (!isDragging) return;
     setIsDragging(false);
@@ -74,7 +91,6 @@ export const CoverCarousel = memo(function CoverCarousel({
     
     let newIndex = currentIndex;
     
-    // Consider both position and velocity for natural feel
     if (Math.abs(velocity) > velocityThreshold) {
       newIndex = velocity > 0 
         ? Math.max(0, currentIndex - 1) 
@@ -93,7 +109,33 @@ export const CoverCarousel = memo(function CoverCarousel({
     setVelocity(0);
   }, [isDragging, velocity, translateX, currentIndex, tracks, coverSize, onIndexChange, onTrackChange]);
 
-  // Touch events
+  // Slider drag handlers
+  const handleSliderStart = useCallback((clientX: number) => {
+    if (!sliderRef.current) return;
+    setIsSliderDragging(true);
+    const rect = sliderRef.current.getBoundingClientRect();
+    const progress = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    setSliderProgress(progress);
+  }, []);
+
+  const handleSliderMove = useCallback((clientX: number) => {
+    if (!isSliderDragging || !sliderRef.current) return;
+    const rect = sliderRef.current.getBoundingClientRect();
+    const progress = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    setSliderProgress(progress);
+  }, [isSliderDragging]);
+
+  const handleSliderEnd = useCallback(() => {
+    if (!isSliderDragging) return;
+    setIsSliderDragging(false);
+    const newIndex = Math.round(sliderProgress * (tracks.length - 1));
+    onIndexChange(newIndex);
+    if (onTrackChange) {
+      onTrackChange(tracks[newIndex]);
+    }
+  }, [isSliderDragging, sliderProgress, tracks, onIndexChange, onTrackChange]);
+
+  // Touch events for covers
   const onTouchStart = useCallback((e: TouchEvent) => {
     handleDragStart(e.touches[0].clientX);
   }, [handleDragStart]);
@@ -106,7 +148,7 @@ export const CoverCarousel = memo(function CoverCarousel({
     handleDragEnd();
   }, [handleDragEnd]);
 
-  // Mouse events
+  // Mouse events for covers
   const onMouseDown = useCallback((e: MouseEvent) => {
     e.preventDefault();
     handleDragStart(e.clientX);
@@ -126,57 +168,115 @@ export const CoverCarousel = memo(function CoverCarousel({
     }
   }, [isDragging, handleDragEnd]);
 
-  // Calculate cover positions - 3 visible covers with stagger effect
+  // Slider touch events
+  const onSliderTouchStart = useCallback((e: TouchEvent) => {
+    e.stopPropagation();
+    handleSliderStart(e.touches[0].clientX);
+  }, [handleSliderStart]);
+
+  const onSliderTouchMove = useCallback((e: TouchEvent) => {
+    e.stopPropagation();
+    handleSliderMove(e.touches[0].clientX);
+  }, [handleSliderMove]);
+
+  const onSliderTouchEnd = useCallback((e: TouchEvent) => {
+    e.stopPropagation();
+    handleSliderEnd();
+  }, [handleSliderEnd]);
+
+  // Slider mouse events
+  const onSliderMouseDown = useCallback((e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleSliderStart(e.clientX);
+    
+    const handleMouseMove = (ev: globalThis.MouseEvent) => {
+      if (!sliderRef.current) return;
+      const rect = sliderRef.current.getBoundingClientRect();
+      const progress = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
+      setSliderProgress(progress);
+    };
+    
+    const handleMouseUp = () => {
+      setIsSliderDragging(false);
+      const newIndex = Math.round(sliderProgress * (tracks.length - 1));
+      onIndexChange(newIndex);
+      if (onTrackChange) {
+        onTrackChange(tracks[newIndex]);
+      }
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [handleSliderStart, sliderProgress, tracks, onIndexChange, onTrackChange]);
+
+  // Calculate 3D cover positions - diagonal movement, sides show only small piece
   const getCardStyle = (index: number) => {
     const diff = index - currentIndex;
-    const dragOffset = isDragging ? translateX / (coverSize + gap) : 0;
-    const adjustedDiff = diff - dragOffset;
+    const dragOffset = isDragging ? translateX / coverSize : 0;
+    const sliderOffset = isSliderDragging 
+      ? (sliderProgress * (tracks.length - 1) - currentIndex) 
+      : 0;
+    const adjustedDiff = diff - dragOffset - sliderOffset;
     
-    // Only show -1, 0, 1 positions
-    if (Math.abs(adjustedDiff) > 2) {
-      return { opacity: 0, pointerEvents: 'none' as const, zIndex: 0 };
+    // Show left (-1), center (0), right (+1)
+    if (Math.abs(adjustedDiff) > 1.5) {
+      return { opacity: 0, pointerEvents: 'none' as const, zIndex: 0, display: 'none' };
     }
     
     const absAdjustedDiff = Math.abs(adjustedDiff);
+    const isCenter = absAdjustedDiff < 0.3;
     
-    // Vertical offset: LEFT (-1) goes UP, RIGHT (+1) goes DOWN
-    // So if diff is negative (left side), we move UP (negative Y)
-    // If diff is positive (right side), we move DOWN (positive Y)
-    const verticalOffset = adjustedDiff * 60; // Negative for left (up), positive for right (down)
+    // Side covers show only small piece (offset far to sides)
+    const sideOffset = coverSize * 0.75; // Most of cover is off-screen
+    const diagonalX = adjustedDiff * (coverSize * 0.5 + sideOffset);
+    
+    // Diagonal Y: left goes up, right goes down
+    const diagonalY = adjustedDiff * 40;
+    
+    // 3D rotation effect
+    const rotateY = adjustedDiff * -20;
+    const rotateZ = adjustedDiff * 2;
     
     // Scale: center is full, sides are smaller
-    const scale = adjustedDiff === 0 ? 1 : Math.max(0.65, 1 - absAdjustedDiff * 0.35);
+    const scale = isCenter ? 1 : Math.max(0.7, 1 - absAdjustedDiff * 0.3);
     
-    // Opacity: center is bright, sides are dimmed
-    const opacity = adjustedDiff === 0 ? 1 : Math.max(0.5, 1 - absAdjustedDiff * 0.4);
+    // Opacity for darkening sides
+    const opacity = isCenter ? 1 : 0.5;
     
     // Brightness for dimming effect
-    const brightness = adjustedDiff === 0 ? 1 : 0.6;
+    const brightness = isCenter ? 1 : 0.4;
     
     // Z-index
-    const zIndex = 10 - Math.floor(absAdjustedDiff);
-    
-    // X offset
-    const xOffset = adjustedDiff * (coverSize * 0.65 + gap);
+    const zIndex = 10 - Math.floor(absAdjustedDiff * 2);
     
     return {
-      transform: `translateX(${xOffset}px) translateY(${verticalOffset}px) scale(${scale})`,
+      transform: `
+        translateX(${diagonalX}px) 
+        translateY(${diagonalY}px) 
+        scale(${scale}) 
+        rotateY(${rotateY}deg)
+        rotateZ(${rotateZ}deg)
+      `,
       opacity,
       zIndex,
       filter: `brightness(${brightness})`,
-      transition: isDragging 
+      transition: isDragging || isSliderDragging
         ? 'none' 
-        : 'transform 500ms cubic-bezier(0.22, 1, 0.36, 1), opacity 350ms ease-out, filter 350ms ease-out',
+        : 'transform 600ms cubic-bezier(0.22, 1, 0.36, 1), opacity 400ms ease-out, filter 400ms ease-out',
     };
   };
 
-  // Get track title style - moves with center cover
+  // Title moves diagonally with cover
   const getTitleStyle = () => {
-    const dragOffset = isDragging ? translateX * 0.3 : 0;
+    const dragOffset = isDragging ? translateX * 0.5 : 0;
+    const dragOffsetY = isDragging ? translateX * -0.15 : 0;
     
     return {
-      transform: `translateX(${dragOffset}px)`,
-      transition: isDragging ? 'none' : 'transform 500ms cubic-bezier(0.22, 1, 0.36, 1)',
+      transform: `translate(${dragOffset}px, ${dragOffsetY}px)`,
+      transition: isDragging ? 'none' : 'transform 600ms cubic-bezier(0.22, 1, 0.36, 1)',
     };
   };
 
@@ -184,17 +284,14 @@ export const CoverCarousel = memo(function CoverCarousel({
 
   return (
     <div className="relative w-full h-screen min-h-[600px] max-h-[900px] flex flex-col items-center justify-center bg-cream overflow-hidden">
-      {/* Track Title - above covers, minimalist */}
+      {/* Track Title - moves diagonally with cover, minimalist */}
       <div 
-        className="absolute top-[15%] md:top-[18%] left-0 right-0 text-center z-20"
+        className="absolute top-[12%] md:top-[15%] left-0 right-0 text-center z-20 pointer-events-none"
         style={getTitleStyle()}
       >
-        <h1 className="text-lg md:text-xl font-light tracking-wide text-charcoal/80">
+        <h1 className="text-xl md:text-2xl font-semibold tracking-wide text-charcoal">
           {currentTrack?.title}
         </h1>
-        <p className="text-xs md:text-sm font-light text-muted-foreground mt-1">
-          {currentTrack?.format} · {currentTrack?.year}
-        </p>
       </div>
 
       {/* Covers Container */}
@@ -212,8 +309,8 @@ export const CoverCarousel = memo(function CoverCarousel({
         onMouseUp={onMouseUp}
         onMouseLeave={onMouseLeave}
       >
-        {/* Covers */}
-        <div className="relative flex items-center justify-center">
+        {/* Covers - square, no rounding on main screen */}
+        <div className="relative flex items-center justify-center" style={{ perspective: '1200px' }}>
           {tracks.map((track, index) => {
             const style = getCardStyle(index);
             if (style.opacity === 0) return null;
@@ -226,9 +323,11 @@ export const CoverCarousel = memo(function CoverCarousel({
                   ...style,
                   width: coverSize,
                   height: coverSize,
+                  transformStyle: 'preserve-3d',
                 }}
               >
-                <div className="cover-card w-full h-full rounded-2xl overflow-hidden select-none">
+                {/* Square cover - no border radius */}
+                <div className="w-full h-full overflow-hidden select-none shadow-2xl">
                   <img
                     src={track.coverUrl}
                     alt={track.title}
@@ -242,21 +341,38 @@ export const CoverCarousel = memo(function CoverCarousel({
         </div>
       </div>
 
-      {/* Drag indicator bar */}
-      <div className="absolute bottom-[12%] left-1/2 -translate-x-1/2 z-20">
-        <div 
+      {/* Slider Track (палочка) */}
+      <div className="absolute bottom-[10%] left-1/2 -translate-x-1/2 z-20">
+        <div
+          ref={sliderRef}
           className={cn(
-            'w-24 h-1 bg-charcoal/20 rounded-full cursor-grab',
-            isDragging && 'cursor-grabbing bg-charcoal/40'
+            'relative bg-charcoal/30 rounded-full cursor-pointer',
+            isMobile ? 'w-32 h-1' : 'w-48 h-1'
           )}
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-          onMouseDown={onMouseDown}
-          onMouseMove={onMouseMove}
-          onMouseUp={onMouseUp}
-          onMouseLeave={onMouseLeave}
-        />
+          onTouchStart={onSliderTouchStart}
+          onTouchMove={onSliderTouchMove}
+          onTouchEnd={onSliderTouchEnd}
+          onMouseDown={onSliderMouseDown}
+        >
+          {/* Progress fill */}
+          <div 
+            className="absolute top-0 left-0 h-full bg-charcoal rounded-full transition-none"
+            style={{ width: `${sliderProgress * 100}%` }}
+          />
+          
+          {/* Oval handle */}
+          <div
+            className={cn(
+              'absolute top-1/2 -translate-y-1/2 bg-charcoal rounded-full shadow-lg',
+              'transition-transform duration-100',
+              isSliderDragging ? 'scale-110' : 'hover:scale-105',
+              isMobile ? 'w-5 h-3' : 'w-6 h-3.5'
+            )}
+            style={{ 
+              left: `calc(${sliderProgress * 100}% - ${isMobile ? 10 : 12}px)`,
+            }}
+          />
+        </div>
       </div>
     </div>
   );
