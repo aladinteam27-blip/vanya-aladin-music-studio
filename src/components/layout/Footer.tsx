@@ -1,69 +1,94 @@
-import { memo } from 'react';
-import { Link } from 'react-router-dom';
-
-const socialLinks = [
-  { href: 'https://t.me/aladin_vanya', label: 'Telegram' },
-  { href: 'https://vk.com/aladin_vanya', label: 'VK' },
-  { href: 'https://www.instagram.com/aladin_vanya/', label: 'Instagram' },
-  { href: 'https://www.tiktok.com/@aladin_vanya', label: 'TikTok' },
-  { href: 'https://rutube.ru/u/VanyaAladin/', label: 'Rutube' },
-];
-
-const navLinks = [
-  { href: '/', label: 'Главная' },
-  { href: '/music', label: 'Музыка' },
-  { href: '/video', label: 'Видео' },
-  { href: '/about', label: 'Обо мне' },
-  { href: '/contact', label: 'Контакты' },
-];
+import { memo } from "react";
+import { socialLinks, contactInfo } from "@/data/siteData";
 
 export const Footer = memo(function Footer() {
   return (
-    <footer className="border-t border-border bg-cream">
-      <div className="container mx-auto px-6 py-12 md:py-16">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-8">
-          {/* Brand */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-foreground">Ваня Аладин</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Российский певец и автор песен. Слушайте новые треки и следите за афишей концертов.
-            </p>
-          </div>
-
+    <footer className="relative bg-background border-t border-border" role="contentinfo">
+      <div className="container mx-auto px-4 md:px-6 py-10 md:py-14">
+        {/* Main footer content */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
+          
           {/* Navigation */}
-          <div className="space-y-4">
-            <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground">
-              Навигация
-            </h4>
+          <div>
+            <h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-4">Навигация</h3>
             <ul className="space-y-2">
-              {navLinks.map((link) => (
-                <li key={link.href}>
-                  <Link
-                    to={link.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
+              <li>
+                <a
+                  href="https://vanyaaladin.com/policy"
+                  target="_blank"
+                  rel="noopener"
+                  className="text-sm text-foreground/70 hover:text-foreground transition-colors"
+                >
+                  Политика конфиденциальности
+                </a>
+              </li>
+              <li>
+                <a
+                  href="/terms"
+                  className="text-sm text-foreground/70 hover:text-foreground transition-colors"
+                >
+                  Условия использования
+                </a>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  className="text-sm text-foreground/70 hover:text-foreground transition-colors"
+                >
+                  Настройки Cookies
+                </button>
+              </li>
             </ul>
           </div>
 
-          {/* Social Links */}
-          <div className="space-y-4">
-            <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground">
-              Соцсети
-            </h4>
-            <ul className="space-y-2">
-              {socialLinks.map((link) => (
-                <li key={link.href}>
+          {/* Contacts */}
+          <div>
+            <h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-4">Контакты</h3>
+            <div className="space-y-2 text-sm">
+              <p className="text-foreground/70">
+                Концерты и реклама:{" "}
+                <a 
+                  href={`tel:${contactInfo.booking.phone.replace(/\s/g, "")}`}
+                  className="text-foreground hover:text-primary transition-colors"
+                >
+                  {contactInfo.booking.phone}
+                </a>
+                <span className="text-muted-foreground"> — {contactInfo.booking.name}</span>
+              </p>
+              <p className="text-foreground/70">
+                PR / Пресса:{" "}
+                <a 
+                  href={`mailto:${contactInfo.pr.email}`}
+                  className="text-foreground hover:text-primary transition-colors"
+                >
+                  {contactInfo.pr.email}
+                </a>
+              </p>
+            </div>
+          </div>
+
+          {/* Social links */}
+          <div>
+            <h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-4">Социальные сети</h3>
+            <ul className="flex flex-wrap gap-3">
+              {socialLinks.map((social) => (
+                <li key={social.name}>
                   <a
-                    href={link.href}
+                    href={social.url}
                     target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    rel={social.rel || "noopener"}
+                    aria-label={social.name}
+                    className="flex items-center justify-center w-10 h-10 rounded-xl bg-muted hover:bg-primary/10 transition-all duration-300"
                   >
-                    {link.label}
+                    <img
+                      src={social.icon}
+                      alt={social.name}
+                      width={18}
+                      height={18}
+                      className="w-[18px] h-[18px]"
+                      style={{ filter: "brightness(0) opacity(0.6)" }}
+                      loading="lazy"
+                    />
                   </a>
                 </li>
               ))}
@@ -71,13 +96,22 @@ export const Footer = memo(function Footer() {
           </div>
         </div>
 
-        {/* Copyright */}
-        <div className="mt-12 pt-8 border-t border-border/50">
-          <p className="text-center text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Ваня Аладин. Все права защищены.
+        {/* Bottom bar */}
+        <div className="mt-10 pt-6 border-t border-border flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <p className="text-sm text-muted-foreground">
+            © 2025 Ваня Аладин. Все права защищены.
+          </p>
+          <p className="text-xs text-muted-foreground/60 max-w-md">
+            Все материалы, размещенные на данном сайте, являются собственностью их авторов.
           </p>
         </div>
       </div>
+
+      {/* Screen reader accessibility note */}
+      <span className="sr-only">
+        Если вы используете скринридер и испытываете сложности с сайтом, напишите на
+        aladinteam27@gmail.com.
+      </span>
     </footer>
   );
 });

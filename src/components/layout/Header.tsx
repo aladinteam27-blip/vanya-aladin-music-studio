@@ -1,102 +1,168 @@
-import { memo } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-
-const navItems = [
-  { href: '/', label: 'Главная' },
-  { href: '/music', label: 'Музыка' },
-  { href: '/video', label: 'Видео' },
-  { href: '/about', label: 'Обо мне' },
-  { href: '/contact', label: 'Контакты' },
-];
+import { useState, useEffect, memo } from "react";
+import { navLinks, logoSrc } from "@/data/siteData";
+import MobileMenu from "./MobileMenu";
+import SearchModal from "./SearchModal";
+import { Menu, Search } from "lucide-react";
 
 export const Header = memo(function Header() {
-  const location = useLocation();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Left side: Главная, Музыка, Биография
+  const leftLinks = navLinks.slice(0, 3);
+  // Right side: Даты концертов
+  const rightLinks = navLinks.slice(3);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
-      <div className="container mx-auto px-6 py-4">
-        <nav className="flex items-center justify-between">
-          {/* Logo */}
-          <Link 
-            to="/" 
-            className="text-xl font-semibold tracking-tight text-foreground transition-opacity hover:opacity-70"
-          >
-            Ваня Аладин
-          </Link>
-
-          {/* Desktop Navigation */}
-          <ul className="hidden md:flex items-center gap-8">
-            {navItems.map((item) => (
-              <li key={item.href}>
-                <Link
-                  to={item.href}
-                  className={cn(
-                    'nav-link text-sm font-medium tracking-wide uppercase',
-                    location.pathname === item.href && 'active'
-                  )}
-                >
-                  {item.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-
-          {/* Mobile Menu Button */}
-          <MobileMenu currentPath={location.pathname} />
-        </nav>
+    <>
+      {/* Skip to content link for accessibility */}
+      <div className="fixed top-0 left-0 z-[100]">
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md"
+        >
+          Перейти к контенту
+        </a>
       </div>
-    </header>
+
+      <header
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+          isScrolled ? "bg-background/90 backdrop-blur-md shadow-sm" : ""
+        }`}
+      >
+        {/* Gradient overlay when not scrolled */}
+        <div
+          className={`absolute inset-0 pointer-events-none transition-opacity duration-500 ${
+            isScrolled ? "opacity-0" : "opacity-100"
+          }`}
+          style={{
+            background: "linear-gradient(180deg, hsla(40,30%,96%,0.95) 0%, hsla(40,30%,96%,0) 100%)"
+          }}
+          aria-hidden="true"
+        />
+
+        <div className="relative px-4 md:px-6 lg:px-8 max-w-[1400px] mx-auto">
+          <div className="flex items-center justify-center h-16 lg:h-[72px]">
+            
+            {/* Mobile menu trigger - absolute left */}
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="lg:hidden absolute left-4 p-2 text-foreground/70 hover:text-foreground transition-colors"
+              type="button"
+              aria-label="Открыть меню"
+              aria-haspopup="dialog"
+              aria-expanded={isMobileMenuOpen}
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            {/* Mobile search button - absolute right */}
+            <button
+              onClick={() => setIsSearchOpen(true)}
+              className="lg:hidden absolute right-4 p-2 text-foreground/70 hover:text-foreground transition-colors"
+              type="button"
+              aria-label="Открыть поиск"
+            >
+              <Search className="w-5 h-5" />
+            </button>
+
+            {/* Desktop: Navigation spanning full width with logo centered */}
+            <nav className="hidden lg:flex items-center justify-between w-full" aria-label="Основная навигация">
+              {/* Left nav items: Главная, Музыка, Биография */}
+              <div className="flex items-center gap-10">
+                {leftLinks.map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    target={link.external ? "_blank" : undefined}
+                    rel={link.rel || (link.external ? "noopener" : undefined)}
+                    className={`nav-link text-sm font-medium ${link.active ? "active" : ""}`}
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+
+              {/* Center Logo */}
+              <a
+                href="/"
+                aria-label="Главная"
+                className="absolute left-1/2 -translate-x-1/2 transition-all duration-300 hover:scale-105 hover:opacity-80"
+              >
+                <img
+                  src={logoSrc}
+                  alt="Ваня Аладин — логотип"
+                  width={160}
+                  height={64}
+                  className="h-12 lg:h-14 w-auto object-contain"
+                  style={{ filter: "brightness(0)" }}
+                  loading="eager"
+                  fetchPriority="high"
+                />
+              </a>
+
+              {/* Right nav items: Даты концертов, Контакты, Search */}
+              <div className="flex items-center gap-10">
+                {rightLinks.map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    target={link.external ? "_blank" : undefined}
+                    rel={link.rel || (link.external ? "noopener" : undefined)}
+                    className="nav-link text-sm font-medium"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+                <a href="/contacts" className="nav-link text-sm font-medium">
+                  Контакты
+                </a>
+                <button
+                  onClick={() => setIsSearchOpen(true)}
+                  className="p-2 text-foreground/70 hover:text-foreground transition-colors"
+                  type="button"
+                  aria-label="Открыть поиск"
+                >
+                  <Search className="w-5 h-5" />
+                </button>
+              </div>
+            </nav>
+
+            {/* Mobile: Centered Logo */}
+            <a
+              href="/"
+              aria-label="Главная"
+              className="lg:hidden transition-all duration-300 hover:scale-105 hover:opacity-80"
+            >
+              <img
+                src={logoSrc}
+                alt="Ваня Аладин — логотип"
+                width={120}
+                height={48}
+                className="h-9 w-auto object-contain"
+                style={{ filter: "brightness(0)" }}
+                loading="eager"
+                fetchPriority="high"
+              />
+            </a>
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile menu */}
+      <MobileMenu isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
+      
+      {/* Search modal */}
+      <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+    </>
   );
 });
-
-// Mobile Menu Component
-import { useState } from 'react';
-import { Menu, X } from 'lucide-react';
-
-function MobileMenu({ currentPath }: { currentPath: string }) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  return (
-    <div className="md:hidden">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="p-2 text-foreground"
-        aria-label="Toggle menu"
-      >
-        {isOpen ? <X size={24} /> : <Menu size={24} />}
-      </button>
-
-      {/* Mobile Menu Overlay */}
-      <div
-        className={cn(
-          'fixed inset-0 top-[65px] bg-background z-40 transition-all duration-300',
-          isOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'
-        )}
-      >
-        <ul className="flex flex-col items-center gap-6 pt-12">
-          {navItems.map((item, index) => (
-            <li
-              key={item.href}
-              className="animate-fade-in"
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <Link
-                to={item.href}
-                onClick={() => setIsOpen(false)}
-                className={cn(
-                  'text-lg font-medium tracking-wide uppercase transition-colors',
-                  currentPath === item.href 
-                    ? 'text-foreground' 
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {item.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  );
-}
