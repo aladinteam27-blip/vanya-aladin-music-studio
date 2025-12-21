@@ -29,11 +29,7 @@ export const CoverCarousel = memo(function CoverCarousel({
   // State
   const [isDragging, setIsDragging] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  
-  // Hover tracking for desktop
-  const [hoverProgress, setHoverProgress] = useState(0.5);
   
   // Touch/drag tracking
   const touchStartRef = useRef({ x: 0, y: 0 });
@@ -59,10 +55,12 @@ export const CoverCarousel = memo(function CoverCarousel({
     };
   }, []);
 
-  // Cover dimensions
+  // Cover dimensions - fullscreen style like Lady Gaga
   const coverWidth = typeof window !== 'undefined' 
-    ? Math.min(window.innerWidth * (isMobile ? 0.65 : 0.32), isMobile ? 260 : 380) 
-    : 350;
+    ? isMobile 
+      ? Math.min(window.innerWidth * 0.72, 320) 
+      : Math.min(window.innerWidth * 0.38, 520)
+    : 400;
   const coverHeight = coverWidth;
 
   // Linear animation for settling (no spring, no bounce)
@@ -71,7 +69,7 @@ export const CoverCarousel = memo(function CoverCarousel({
     targetIndex: number
   ) => {
     const startTime = performance.now();
-    const duration = 280;
+    const duration = 350;
     const targetOffset = 0;
     
     const animate = (currentTime: number) => {
@@ -94,33 +92,6 @@ export const CoverCarousel = memo(function CoverCarousel({
     animationRef.current = requestAnimationFrame(animate);
   }, [onIndexChange, onTrackChange, tracks]);
 
-  // DESKTOP: Mouse move handler for hover-based navigation
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (isMobile || isDragging) return;
-    
-    const container = containerRef.current;
-    if (!container) return;
-    
-    const rect = container.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const progress = Math.max(0, Math.min(1, x / rect.width));
-    setHoverProgress(progress);
-  }, [isMobile, isDragging]);
-
-  // DESKTOP: Handle hover exit with index update
-  const handleMouseLeave = useCallback(() => {
-    if (isMobile) return;
-    
-    // Calculate which index to snap to based on hover position
-    const targetIndex = Math.round(hoverProgress * (tracks.length - 1));
-    if (targetIndex !== currentIndex) {
-      onIndexChange(targetIndex);
-      if (onTrackChange) onTrackChange(tracks[targetIndex]);
-    }
-    setHoverProgress(0.5);
-    setIsPressed(false);
-  }, [isMobile, hoverProgress, tracks, currentIndex, onIndexChange, onTrackChange]);
-
   // DESKTOP: Press effect on hover
   const handleMouseDown = useCallback(() => {
     if (isMobile) return;
@@ -128,6 +99,10 @@ export const CoverCarousel = memo(function CoverCarousel({
   }, [isMobile]);
 
   const handleMouseUp = useCallback(() => {
+    setIsPressed(false);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
     setIsPressed(false);
   }, []);
 
@@ -263,16 +238,12 @@ export const CoverCarousel = memo(function CoverCarousel({
     document.addEventListener('mouseup', handleUp);
   }, [handleSliderChange]);
 
-  // Calculate cover styles
+  // Calculate cover styles - Lady Gaga style with side covers visible
   const getCardStyle = (index: number): { style: React.CSSProperties; opacity: number; isCenter: boolean } | null => {
     const diff = index - currentIndex;
     
-    // Desktop: use hover progress for smooth movement
     let adjustedDiff = diff;
-    if (!isMobile && !isDragging) {
-      const hoverIndex = hoverProgress * (tracks.length - 1);
-      adjustedDiff = index - hoverIndex;
-    } else if (isMobile) {
+    if (isMobile) {
       const normalizedDrag = dragOffset / coverWidth;
       adjustedDiff = diff - normalizedDrag;
     }
@@ -290,31 +261,41 @@ export const CoverCarousel = memo(function CoverCarousel({
     const isCenter = absAdjustedDiff < 0.5;
     
     if (absAdjustedDiff < 0.5) {
-      // Center cover
-      xOffset = adjustedDiff * coverWidth * 0.8;
+      // Center cover - takes up most of the screen
+      xOffset = adjustedDiff * coverWidth * 0.7;
       yOffset = 0;
       scale = isPressed ? 0.97 : 1;
       opacity = 1;
       zIndex = 10;
     } else if (adjustedDiff < 0) {
-      // Previous cover - top left corner
-      xOffset = -coverWidth * 0.85 + (1 + adjustedDiff) * coverWidth * 0.4;
-      yOffset = -coverWidth * 0.55 + (1 + adjustedDiff) * coverWidth * 0.3;
-      scale = 0.85;
-      opacity = isMobile ? 0.5 : 0.7;
+      // Previous cover - top left corner, partially hidden
+      const t = 1 + adjustedDiff; // 0 to 0.5
+      xOffset = isMobile 
+        ? -coverWidth * 0.9 + t * coverWidth * 0.35
+        : -coverWidth * 1.1 + t * coverWidth * 0.4;
+      yOffset = isMobile 
+        ? -coverWidth * 0.6 + t * coverWidth * 0.35
+        : -coverWidth * 0.7 + t * coverWidth * 0.35;
+      scale = 0.92;
+      opacity = 0.5;
       zIndex = 5;
     } else {
-      // Next cover - bottom right corner
-      xOffset = coverWidth * 0.85 + (adjustedDiff - 1) * coverWidth * 0.4;
-      yOffset = coverWidth * 0.55 + (adjustedDiff - 1) * coverWidth * 0.3;
-      scale = 0.85;
-      opacity = isMobile ? 0.5 : 0.7;
+      // Next cover - bottom right corner, partially hidden
+      const t = adjustedDiff - 1; // -0.5 to 0
+      xOffset = isMobile 
+        ? coverWidth * 0.9 + t * coverWidth * 0.35
+        : coverWidth * 1.1 + t * coverWidth * 0.4;
+      yOffset = isMobile 
+        ? coverWidth * 0.6 + t * coverWidth * 0.35
+        : coverWidth * 0.7 + t * coverWidth * 0.35;
+      scale = 0.92;
+      opacity = 0.5;
       zIndex = 5;
     }
     
     const transition = isDragging 
       ? 'none' 
-      : 'transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1), opacity 0.3s ease-out';
+      : 'transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1), opacity 0.35s ease-out';
     
     return {
       style: {
@@ -340,25 +321,25 @@ export const CoverCarousel = memo(function CoverCarousel({
   }, [currentIndex, onIndexChange, onTrackChange, tracks]);
 
   const sliderProgress = tracks.length > 1 ? (currentIndex / (tracks.length - 1)) * 100 : 0;
-  const carouselHeight = isMobile ? 'h-[52vh] min-h-[340px]' : 'h-[80vh] min-h-[520px] max-h-[750px]';
+  const carouselHeight = isMobile ? 'min-h-[50vh]' : 'min-h-[85vh]';
 
   return (
-    <div className={cn("relative w-full flex flex-col bg-cream overflow-hidden", carouselHeight)}>
+    <div className={cn("relative w-full flex flex-col bg-charcoal overflow-hidden", carouselHeight)}>
       
       {/* MOBILE: Track names above covers - centered horizontally */}
       {isMobile && (
-        <div className="pt-20 pb-3 px-2">
-          <div className="flex items-center justify-center gap-1.5 overflow-x-auto hide-scrollbar">
+        <div className="pt-20 pb-4 px-2 relative z-20">
+          <div className="flex items-center justify-center gap-2 overflow-x-auto hide-scrollbar">
             {tracks.map((track, index) => (
               <button
                 key={track.id}
                 onClick={() => handleTrackSelect(index)}
                 className={cn(
                   'flex-shrink-0 text-xs font-medium whitespace-nowrap transition-all duration-300',
-                  'px-2 py-1 rounded-sm',
+                  'px-3 py-1.5 rounded-sm',
                   index === currentIndex 
-                    ? 'border border-charcoal text-charcoal' 
-                    : 'text-charcoal/30'
+                    ? 'border border-warm-white text-warm-white' 
+                    : 'text-warm-white/35 border border-transparent'
                 )}
               >
                 {track.title}
@@ -368,19 +349,19 @@ export const CoverCarousel = memo(function CoverCarousel({
         </div>
       )}
 
-      {/* DESKTOP: Track list on left side */}
+      {/* DESKTOP: Track list on left side - vertical list like Lady Gaga */}
       {!isMobile && (
-        <div className="absolute left-6 lg:left-10 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-1">
+        <div className="absolute left-6 lg:left-12 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-1.5">
           {tracks.map((track, index) => (
             <button
               key={track.id}
               onClick={() => handleTrackSelect(index)}
               className={cn(
                 'text-left text-sm font-medium transition-all duration-300',
-                'hover:text-charcoal px-2.5 py-1',
+                'hover:text-warm-white px-3 py-1.5',
                 index === currentIndex 
-                  ? 'border border-charcoal text-charcoal rounded-sm' 
-                  : 'text-charcoal/35 border border-transparent'
+                  ? 'border border-warm-white text-warm-white rounded-sm' 
+                  : 'text-warm-white/40 border border-transparent hover:text-warm-white/80'
               )}
             >
               {track.title}
@@ -398,10 +379,9 @@ export const CoverCarousel = memo(function CoverCarousel({
             !isMobile && 'cursor-pointer'
           )}
           style={{ touchAction: 'pan-y' }}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseLeave}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -415,7 +395,7 @@ export const CoverCarousel = memo(function CoverCarousel({
               const result = getCardStyle(index);
               if (!result) return null;
               
-              const { style, isCenter } = result;
+              const { style, isCenter, opacity } = result;
               
               return (
                 <div
@@ -425,26 +405,23 @@ export const CoverCarousel = memo(function CoverCarousel({
                 >
                   <div 
                     className={cn(
-                      "w-full h-full overflow-hidden select-none",
-                      "shadow-[0_16px_48px_-12px_rgba(0,0,0,0.2)]"
+                      "w-full h-full overflow-hidden select-none relative",
+                      isCenter && "shadow-[0_20px_70px_-15px_rgba(0,0,0,0.5)]"
                     )}
                   >
                     <img
                       src={track.coverUrl}
-                      alt={`Обложка трека ${track.title} - ${track.format} ${track.year}`}
+                      alt={`Обложка альбома ${track.title} - ${track.format} ${track.year}`}
                       className="w-full h-full object-cover pointer-events-none"
                       draggable={false}
                     />
+                    {/* Darken overlay for side covers */}
+                    {!isCenter && (
+                      <div 
+                        className="absolute inset-0 bg-black/45 pointer-events-none"
+                      />
+                    )}
                   </div>
-                  
-                  {/* Track title below cover - only for center on desktop */}
-                  {!isMobile && isCenter && (
-                    <div className="absolute -bottom-12 left-0 right-0 text-center transition-opacity duration-300">
-                      <span className="inline-block px-3 py-1.5 text-sm font-medium text-charcoal border border-charcoal/15 rounded-sm bg-cream/90 backdrop-blur-sm">
-                        {track.title}
-                      </span>
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -452,22 +429,17 @@ export const CoverCarousel = memo(function CoverCarousel({
         </div>
       </div>
 
-      {/* Slider / Touchpad control */}
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 w-[65%] max-w-[400px]">
+      {/* Slider / Touchpad control - positioned at bottom */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 w-[55%] max-w-[500px]">
         <div
           ref={sliderRef}
-          className="relative h-[3px] bg-charcoal/12 cursor-pointer rounded-full"
+          className="relative h-[2px] bg-warm-white/20 cursor-pointer"
           onMouseDown={handleSliderMouseDown}
         >
           {/* Progress fill */}
           <div 
-            className="absolute top-0 left-0 h-full bg-charcoal/50 rounded-full transition-all duration-200"
+            className="absolute top-0 left-0 h-full bg-warm-white/60 transition-all duration-200"
             style={{ width: `${sliderProgress}%` }}
-          />
-          {/* Thumb */}
-          <div 
-            className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-charcoal rounded-full transition-all duration-200 hover:scale-125"
-            style={{ left: `calc(${sliderProgress}% - 6px)` }}
           />
         </div>
       </div>

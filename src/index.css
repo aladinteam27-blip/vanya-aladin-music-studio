@@ -48,6 +48,10 @@
     --warm-white: 45 40% 99%;
     --soft-shadow: 0 0% 0% / 0.06;
     
+    /* Brand accent - blue like vanyaaladin.com */
+    --brand-blue: 230 75% 60%;
+    --brand-blue-light: 230 85% 70%;
+    
     /* Gradients */
     --gradient-cream: linear-gradient(180deg, hsl(var(--warm-white)) 0%, hsl(var(--cream)) 100%);
     --gradient-card: linear-gradient(145deg, hsl(var(--card)) 0%, hsl(var(--cream-dark)) 100%);
@@ -221,7 +225,7 @@
     transition: opacity var(--transition-smooth), transform var(--transition-smooth);
   }
 
-  /* Navigation link */
+  /* Navigation link - default */
   .nav-link {
     @apply relative text-muted-foreground;
     transition: color var(--transition-fast);
@@ -250,6 +254,52 @@
 
   .nav-link.active::after {
     transform: scaleX(1);
+  }
+
+  /* Navigation link - styled with blue underline for active */
+  .nav-link-styled {
+    @apply relative text-muted-foreground;
+    transition: color var(--transition-fast);
+  }
+
+  .nav-link-styled::after {
+    content: '';
+    @apply absolute left-0 -bottom-1 w-full h-[2px];
+    background: hsl(var(--brand-blue));
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform var(--transition-smooth);
+  }
+
+  .nav-link-styled:hover {
+    @apply text-foreground;
+  }
+
+  .nav-link-styled:hover::after {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+
+  .nav-link-styled.nav-link-active {
+    @apply text-foreground;
+  }
+
+  .nav-link-styled.nav-link-active::after {
+    transform: scaleX(1);
+  }
+
+  /* Wave animation for player bars */
+  @keyframes wave-bar {
+    0%, 100% {
+      height: 4px;
+    }
+    50% {
+      height: 16px;
+    }
+  }
+
+  .animate-wave-bar {
+    animation: wave-bar 0.8s ease-in-out infinite;
   }
 
   /* View mode toggle */

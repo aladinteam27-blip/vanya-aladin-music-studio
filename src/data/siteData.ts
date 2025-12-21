@@ -10,9 +10,10 @@ export interface NavLink {
   active?: boolean;
 }
 
+// Navigation links - "Музыка" is now active since we're on /music
 export const navLinks: NavLink[] = [
-  { href: "/", label: "Главная", active: true },
-  { href: "https://vanyaaladin.com/music", label: "Музыка", external: true },
+  { href: "https://vanyaaladin.com/", label: "Главная", external: true },
+  { href: "/music", label: "Музыка", active: true },
   { href: "https://vanyaaladin.com/wiki/aladin-vanya", label: "Биография", external: true },
   { href: "https://vanyaaladin.com/live", label: "Даты концертов", external: true },
 ];
