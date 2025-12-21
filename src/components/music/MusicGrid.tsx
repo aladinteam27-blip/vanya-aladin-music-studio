@@ -137,7 +137,7 @@ const GridCard = memo(function GridCard({ track, index, isMobile, onClick }: Car
   return (
     <Link
       to={`/music/${track.slug}`}
-      className="music-card group block"
+      className="music-card group block transition-transform duration-200 hover:scale-[0.97] active:scale-95"
       style={{ 
         animationName: 'fadeInUp',
         animationDuration: '0.4s',
@@ -152,15 +152,12 @@ const GridCard = memo(function GridCard({ track, index, isMobile, onClick }: Car
         }
       }}
     >
-      {/* Cover with hover animation */}
-      <div className={cn(
-        "overflow-hidden rounded-lg bg-muted",
-        isMobile ? "aspect-square" : "aspect-square"
-      )}>
+      {/* Cover with press-in effect */}
+      <div className="overflow-hidden rounded-xl bg-muted aspect-square">
         <img
           src={track.coverUrl}
           alt={`Обложка трека "${track.title}" - ${track.format} ${track.year} года, исполнитель Ваня Аладин`}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           loading="lazy"
         />
       </div>
