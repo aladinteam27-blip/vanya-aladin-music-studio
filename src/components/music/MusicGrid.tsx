@@ -17,14 +17,14 @@ export const MusicGrid = memo(function MusicGrid({
 }: MusicGridProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [isMobile, setIsMobile] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(2);
+  const [visibleCount, setVisibleCount] = useState(4);
 
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      // Mobile: 4 blocks, Desktop: 2 blocks
-      setVisibleCount(mobile ? 4 : 2);
+      // Mobile: 4 blocks, Desktop: 4 blocks (3-4 per row)
+      setVisibleCount(mobile ? 4 : 4);
     };
     checkMobile();
     window.addEventListener('resize', checkMobile);
@@ -35,13 +35,13 @@ export const MusicGrid = memo(function MusicGrid({
   const hasMore = visibleCount < tracks.length;
 
   const handleShowMore = () => {
-    const increment = isMobile ? 4 : 2;
+    const increment = isMobile ? 4 : 4;
     setVisibleCount(prev => Math.min(prev + increment, tracks.length));
   };
 
   return (
     <section className="py-12 md:py-20 bg-cream">
-      <div className="container mx-auto px-4 md:px-6">
+      <div className="container mx-auto px-4 md:px-6 lg:px-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xl md:text-2xl font-semibold text-foreground">
@@ -67,13 +67,13 @@ export const MusicGrid = memo(function MusicGrid({
           </div>
         </div>
 
-        {/* Grid View - 2 columns on both mobile and desktop */}
+        {/* Grid View - 4 columns on mobile, 3-4 on desktop */}
         {viewMode === 'grid' && (
           <div className={cn(
-            "grid gap-3 md:gap-6",
+            "grid gap-3 md:gap-5",
             isMobile 
               ? "grid-cols-2" 
-              : "grid-cols-2 max-w-3xl mx-auto"
+              : "grid-cols-3 lg:grid-cols-4"
           )}>
             {visibleTracks.map((track, index) => (
               <GridCard 
@@ -89,7 +89,7 @@ export const MusicGrid = memo(function MusicGrid({
 
         {/* List View */}
         {viewMode === 'list' && (
-          <div className="space-y-3 max-w-3xl mx-auto">
+          <div className="space-y-3 max-w-4xl">
             {visibleTracks.map((track, index) => (
               <ListItem 
                 key={track.id} 
@@ -103,7 +103,7 @@ export const MusicGrid = memo(function MusicGrid({
 
         {/* Show More Button */}
         {hasMore && (
-          <div className="flex justify-center mt-8">
+          <div className="flex justify-center mt-10">
             <button
               onClick={handleShowMore}
               className={cn(
@@ -125,7 +125,7 @@ export const MusicGrid = memo(function MusicGrid({
   );
 });
 
-// Grid Card Component - Compact, neat sizing
+// Grid Card Component - Square, press-in effect on desktop hover
 interface CardProps {
   track: Track;
   index: number;
@@ -137,7 +137,11 @@ const GridCard = memo(function GridCard({ track, index, isMobile, onClick }: Car
   return (
     <Link
       to={`/music/${track.slug}`}
-      className="music-card group block transition-transform duration-200 hover:scale-[0.97] active:scale-95"
+      className={cn(
+        "group block transition-all duration-200",
+        // Press-in effect on desktop hover
+        !isMobile && "hover:scale-[0.97] active:scale-95"
+      )}
       style={{ 
         animationName: 'fadeInUp',
         animationDuration: '0.4s',
@@ -152,12 +156,12 @@ const GridCard = memo(function GridCard({ track, index, isMobile, onClick }: Car
         }
       }}
     >
-      {/* Cover with press-in effect */}
-      <div className="overflow-hidden rounded-xl bg-muted aspect-square">
+      {/* Cover - square with rounded corners */}
+      <div className="overflow-hidden rounded-lg bg-muted aspect-square shadow-sm group-hover:shadow-md transition-shadow duration-200">
         <img
           src={track.coverUrl}
           alt={`Обложка трека "${track.title}" - ${track.format} ${track.year} года, исполнитель Ваня Аладин`}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          className="w-full h-full object-cover transition-transform duration-300"
           loading="lazy"
         />
       </div>
@@ -180,7 +184,8 @@ const ListItem = memo(function ListItem({ track, index, onClick }: CardProps) {
       to={`/music/${track.slug}`}
       className={cn(
         'flex items-center gap-4 p-3 md:p-4 rounded-lg',
-        'bg-card hover:bg-accent transition-colors duration-200'
+        'bg-card hover:bg-accent transition-all duration-200',
+        'hover:scale-[0.99] active:scale-[0.98]'
       )}
       style={{ 
         animationName: 'fadeInUp',

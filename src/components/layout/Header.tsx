@@ -1,13 +1,16 @@
 import { useState, useEffect, memo } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { navLinks, logoSrc } from "@/data/siteData";
 import MobileMenu from "./MobileMenu";
 import SearchModal from "./SearchModal";
 import { Menu, Search } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const Header = memo(function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -16,6 +19,13 @@ export const Header = memo(function Header() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Check if link is active
+  const isActiveLink = (href: string, active?: boolean) => {
+    if (active) return true;
+    if (href === "/music" && location.pathname.startsWith("/music")) return true;
+    return false;
+  };
 
   // Left side: Главная, Музыка, Биография
   const leftLinks = navLinks.slice(0, 3);
@@ -35,22 +45,24 @@ export const Header = memo(function Header() {
       </div>
 
       <header
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-          isScrolled ? "bg-background/90 backdrop-blur-md shadow-sm" : ""
-        }`}
+        className={cn(
+          "fixed top-0 left-0 right-0 z-50 transition-all duration-500",
+          isScrolled ? "bg-background/95 backdrop-blur-md shadow-sm" : ""
+        )}
       >
         {/* Gradient overlay when not scrolled */}
         <div
-          className={`absolute inset-0 pointer-events-none transition-opacity duration-500 ${
+          className={cn(
+            "absolute inset-0 pointer-events-none transition-opacity duration-500",
             isScrolled ? "opacity-0" : "opacity-100"
-          }`}
+          )}
           style={{
-            background: "linear-gradient(180deg, hsla(40,30%,96%,0.95) 0%, hsla(40,30%,96%,0) 100%)"
+            background: "linear-gradient(180deg, hsla(40,30%,96%,0.98) 0%, hsla(40,30%,96%,0) 100%)"
           }}
           aria-hidden="true"
         />
 
-        <div className="relative px-4 md:px-6 lg:px-8 max-w-[1400px] mx-auto">
+        <div className="relative px-4 md:px-6 lg:px-10 max-w-[1400px] mx-auto">
           <div className="flex items-center justify-center h-16 lg:h-[72px]">
             
             {/* Mobile menu trigger - absolute left */}
@@ -79,22 +91,44 @@ export const Header = memo(function Header() {
             <nav className="hidden lg:flex items-center justify-between w-full" aria-label="Основная навигация">
               {/* Left nav items: Главная, Музыка, Биография */}
               <div className="flex items-center gap-10">
-                {leftLinks.map((link) => (
-                  <a
-                    key={link.href}
-                    href={link.href}
-                    target={link.external ? "_blank" : undefined}
-                    rel={link.rel || (link.external ? "noopener" : undefined)}
-                    className={`nav-link text-sm font-medium ${link.active ? "active" : ""}`}
-                  >
-                    {link.label}
-                  </a>
-                ))}
+                {leftLinks.map((link) => {
+                  const isActive = isActiveLink(link.href, link.active);
+                  const isExternal = link.external;
+                  
+                  const linkClass = cn(
+                    "nav-link-styled text-sm font-medium transition-colors",
+                    isActive && "nav-link-active"
+                  );
+                  
+                  if (isExternal) {
+                    return (
+                      <a
+                        key={link.href}
+                        href={link.href}
+                        target="_blank"
+                        rel={link.rel || "noopener"}
+                        className={linkClass}
+                      >
+                        {link.label}
+                      </a>
+                    );
+                  }
+                  
+                  return (
+                    <Link
+                      key={link.href}
+                      to={link.href}
+                      className={linkClass}
+                    >
+                      {link.label}
+                    </Link>
+                  );
+                })}
               </div>
 
               {/* Center Logo */}
               <a
-                href="/"
+                href="https://vanyaaladin.com/"
                 aria-label="Главная"
                 className="absolute left-1/2 -translate-x-1/2 transition-all duration-300 hover:scale-105 hover:opacity-80"
               >
@@ -104,7 +138,6 @@ export const Header = memo(function Header() {
                   width={160}
                   height={64}
                   className="h-12 lg:h-14 w-auto object-contain"
-                  style={{ filter: "brightness(0)" }}
                   loading="eager"
                   fetchPriority="high"
                 />
@@ -118,12 +151,15 @@ export const Header = memo(function Header() {
                     href={link.href}
                     target={link.external ? "_blank" : undefined}
                     rel={link.rel || (link.external ? "noopener" : undefined)}
-                    className="nav-link text-sm font-medium"
+                    className="nav-link-styled text-sm font-medium"
                   >
                     {link.label}
                   </a>
                 ))}
-                <a href="/contacts" className="nav-link text-sm font-medium">
+                <a 
+                  href="https://vanyaaladin.com/contacts" 
+                  className="nav-link-styled text-sm font-medium"
+                >
                   Контакты
                 </a>
                 <button
@@ -139,7 +175,7 @@ export const Header = memo(function Header() {
 
             {/* Mobile: Centered Logo */}
             <a
-              href="/"
+              href="https://vanyaaladin.com/"
               aria-label="Главная"
               className="lg:hidden transition-all duration-300 hover:scale-105 hover:opacity-80"
             >
@@ -149,7 +185,6 @@ export const Header = memo(function Header() {
                 width={120}
                 height={48}
                 className="h-9 w-auto object-contain"
-                style={{ filter: "brightness(0)" }}
                 loading="eager"
                 fetchPriority="high"
               />
