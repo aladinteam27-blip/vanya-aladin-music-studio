@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { CoverCarousel } from '@/components/music/CoverCarousel';
@@ -15,20 +15,29 @@ const MusicPage = () => {
     isPlaying, 
     currentTrack: playingTrack, 
     progress, 
-    toggle, 
-    stop 
+    play,
+    pause,
+    toggle
   } = useAudioPlayer();
 
-  // Handle index change from carousel
+  // When track changes via carousel AND player is playing, switch to new track (don't stop)
+  // Like Lady Gaga - player continues playing the new track when swiping
   const handleIndexChange = useCallback((index: number) => {
-    // Stop current audio when swiping
-    stop();
+    const wasPlaying = isPlaying;
     setCurrentIndex(index);
-  }, [stop]);
+    
+    // If was playing, automatically play the new track
+    if (wasPlaying) {
+      // Small delay to ensure state is updated
+      setTimeout(() => {
+        play(tracks[index]);
+      }, 50);
+    }
+  }, [isPlaying, play]);
 
-  // Handle track change
+  // Handle track change (called from carousel)
   const handleTrackChange = useCallback((track: Track) => {
-    // Audio is stopped in handleIndexChange
+    // Player continues on its own via handleIndexChange
   }, []);
 
   // Handle play toggle
@@ -38,18 +47,26 @@ const MusicPage = () => {
 
   // Handle track click from grid
   const handleGridTrackClick = useCallback((track: Track, index: number) => {
-    stop();
+    const wasPlaying = isPlaying;
     setCurrentIndex(index);
+    
     // Scroll to top to see the carousel
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [stop]);
+    
+    // If was playing, play the new track
+    if (wasPlaying) {
+      setTimeout(() => {
+        play(tracks[index]);
+      }, 50);
+    }
+  }, [isPlaying, play]);
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
       
       {/* Main Hero Section with Carousel - Fullscreen */}
-      <main className="pt-16">
+      <main className="pt-16" id="main">
         {/* Cover Carousel with integrated title */}
         <CoverCarousel
           tracks={tracks}

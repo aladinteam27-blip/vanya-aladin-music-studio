@@ -63,8 +63,10 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                   href={link.href}
                   target={link.external ? "_blank" : undefined}
                   rel={link.rel || (link.external ? "noopener" : undefined)}
-                  className={`block px-4 py-3 rounded-xl text-foreground/80 hover:text-foreground hover:bg-muted transition-all duration-200 ${
-                    link.active ? "bg-primary/10 text-primary font-medium" : ""
+                  className={`block px-4 py-3 rounded-xl hover:text-foreground hover:bg-muted transition-all duration-200 ${
+                    link.active 
+                      ? "bg-[hsl(230,75%,60%)]/10 text-[hsl(230,75%,60%)] font-medium border-l-2 border-[hsl(230,75%,60%)]" 
+                      : "text-foreground/80"
                   }`}
                   onClick={onClose}
                 >
@@ -74,7 +76,9 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             ))}
             <li style={{ animationDelay: `${navLinks.length * 50}ms` }}>
               <a
-                href="/contacts"
+                href="https://vanyaaladin.com/contacts"
+                target="_blank"
+                rel="noopener"
                 className="block px-4 py-3 rounded-xl text-foreground/80 hover:text-foreground hover:bg-muted transition-all duration-200"
                 onClick={onClose}
               >
