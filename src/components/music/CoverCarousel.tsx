@@ -1,12 +1,5 @@
-import { 
-  useState, 
-  useRef, 
-  useCallback, 
-  memo,
-  useEffect,
-  type TouchEvent,
-  type MouseEvent 
-} from 'react';
+import { useState, useCallback, useRef, useEffect, memo } from 'react';
+import { motion, useSpring, useTransform, useMotionValue, PanInfo } from 'framer-motion';
 import { Track } from '@/data/tracks';
 import { cn } from '@/lib/utils';
 
@@ -17,6 +10,14 @@ interface CoverCarouselProps {
   onTrackChange?: (track: Track) => void;
 }
 
+// Spring config for viscous, inertial movement - stiffness: 40, damping: 20
+const springConfig = { stiffness: 40, damping: 20, mass: 1 };
+
+// Cover dimensions
+const COVER_SIZE_DESKTOP = 450;
+const COVER_SIZE_MOBILE = 280;
+const DIAGONAL_OFFSET = 200;
+
 export const CoverCarousel = memo(function CoverCarousel({
   tracks,
   currentIndex,
@@ -24,22 +25,27 @@ export const CoverCarousel = memo(function CoverCarousel({
   onTrackChange,
 }: CoverCarouselProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const sliderRef = useRef<HTMLDivElement>(null);
-  
-  // State
-  const [isDragging, setIsDragging] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  
-  // Touch/drag tracking
-  const touchStartRef = useRef({ x: 0, y: 0 });
-  const isHorizontalSwipeRef = useRef<boolean | null>(null);
-  const lastXRef = useRef(0);
-  const velocityRef = useRef(0);
-  const lastTimeRef = useRef(Date.now());
-  const animationRef = useRef<number | null>(null);
-  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isHoveringCenter, setIsHoveringCenter] = useState(false);
 
-  // Check mobile
+  // Spring-based position for smooth 3D diagonal movement
+  const targetX = useMotionValue(0);
+  const targetY = useMotionValue(0);
+  const springX = useSpring(targetX, springConfig);
+  const springY = useSpring(targetY, springConfig);
+
+  // For mobile swipe offset
+  const swipeOffset = useMotionValue(0);
+
+  // 3D tilt for center cover on hover
+  const tiltX = useSpring(0, { stiffness: 150, damping: 25 });
+  const tiltY = useSpring(0, { stiffness: 150, damping: 25 });
+
+  // Cover size based on viewport
+  const coverSize = isMobile ? COVER_SIZE_MOBILE : COVER_SIZE_DESKTOP;
+
+  // Check mobile on mount and resize
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
@@ -47,317 +53,154 @@ export const CoverCarousel = memo(function CoverCarousel({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Cleanup animation on unmount
+  // Update spring targets when currentIndex changes
   useEffect(() => {
-    return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-    };
+    const x = -currentIndex * DIAGONAL_OFFSET;
+    const y = currentIndex * DIAGONAL_OFFSET;
+    targetX.set(x);
+    targetY.set(y);
+  }, [currentIndex, targetX, targetY]);
+
+  // Mouse movement handler for desktop - gentle floating + tilt
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (isMobile || isDragging) return;
+
+    const container = containerRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    // Normalize mouse position relative to center (-1 to 1)
+    const normalizedX = (e.clientX - rect.left - centerX) / centerX;
+    const normalizedY = (e.clientY - rect.top - centerY) / centerY;
+
+    // Apply gentle floating movement based on mouse position
+    const floatX = normalizedX * 20;
+    const floatY = normalizedY * 20;
+
+    targetX.set(-currentIndex * DIAGONAL_OFFSET + floatX);
+    targetY.set(currentIndex * DIAGONAL_OFFSET + floatY);
+
+    // Update tilt if hovering center cover
+    if (isHoveringCenter) {
+      tiltX.set(normalizedY * 10);
+      tiltY.set(-normalizedX * 10);
+    }
+  }, [isMobile, isDragging, currentIndex, targetX, targetY, tiltX, tiltY, isHoveringCenter]);
+
+  // Reset when mouse leaves
+  const handleMouseLeave = useCallback(() => {
+    tiltX.set(0);
+    tiltY.set(0);
+    targetX.set(-currentIndex * DIAGONAL_OFFSET);
+    targetY.set(currentIndex * DIAGONAL_OFFSET);
+  }, [currentIndex, targetX, targetY, tiltX, tiltY]);
+
+  // Pan handlers for drag/swipe
+  const handlePanStart = useCallback(() => {
+    setIsDragging(true);
   }, []);
 
-  // Cover dimensions - Lady Gaga style: large centered cover
-  const coverSize = typeof window !== 'undefined' 
-    ? isMobile 
-      ? Math.min(window.innerWidth * 0.75, 340) 
-      : Math.min(Math.max(window.innerHeight * 0.55, 400), 560)
-    : 450;
-
-  // Linear animation for settling (no spring, no bounce) - smooth like Lady Gaga
-  const animateLinear = useCallback((
-    startOffset: number, 
-    targetIndex: number
-  ) => {
-    const startTime = performance.now();
-    const duration = 400; // Smooth duration
-    const targetOffset = 0;
-    
-    const animate = (currentTime: number) => {
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      // Smooth ease-out, no bounce
-      const easeProgress = 1 - Math.pow(1 - progress, 3);
-      
-      const currentOffset = startOffset + (targetOffset - startOffset) * easeProgress;
-      setDragOffset(currentOffset);
-      
-      if (progress < 1) {
-        animationRef.current = requestAnimationFrame(animate);
-      } else {
-        setDragOffset(0);
-        onIndexChange(targetIndex);
-        if (onTrackChange) onTrackChange(tracks[targetIndex]);
-      }
-    };
-    
-    animationRef.current = requestAnimationFrame(animate);
-  }, [onIndexChange, onTrackChange, tracks]);
-
-  // MOBILE: Touch handlers
-  const handleTouchStart = useCallback((e: TouchEvent) => {
-    if (!isMobile) return;
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-      animationRef.current = null;
-    }
-    
-    const touch = e.touches[0];
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
-    isHorizontalSwipeRef.current = null;
-    lastXRef.current = touch.clientX;
-    lastTimeRef.current = performance.now();
-    velocityRef.current = 0;
-  }, [isMobile]);
-
-  const handleTouchMove = useCallback((e: TouchEvent) => {
-    if (!isMobile) return;
-    
-    const touch = e.touches[0];
-    const deltaX = touch.clientX - touchStartRef.current.x;
-    const deltaY = touch.clientY - touchStartRef.current.y;
-    
-    // Determine swipe direction - only after threshold
-    if (isHorizontalSwipeRef.current === null) {
-      const threshold = 12;
-      if (Math.abs(deltaX) > threshold || Math.abs(deltaY) > threshold) {
-        isHorizontalSwipeRef.current = Math.abs(deltaX) > Math.abs(deltaY);
-        if (isHorizontalSwipeRef.current) {
-          setIsDragging(true);
-        }
-      }
-    }
-    
-    // If vertical scroll, don't prevent default - let page scroll
-    if (!isHorizontalSwipeRef.current) return;
-    e.preventDefault();
-    
-    const currentTime = performance.now();
-    const deltaTime = currentTime - lastTimeRef.current;
-    const moveDeltaX = touch.clientX - lastXRef.current;
-    
-    if (deltaTime > 0) {
-      velocityRef.current = moveDeltaX / deltaTime;
-    }
-    
-    lastXRef.current = touch.clientX;
-    lastTimeRef.current = currentTime;
-    
-    // Calculate offset with edge clamping
-    let newOffset = deltaX;
-    const isAtStart = currentIndex === 0 && newOffset > 0;
-    const isAtEnd = currentIndex === tracks.length - 1 && newOffset < 0;
-    
-    if (isAtStart || isAtEnd) {
-      newOffset = newOffset * 0.12; // Light resistance at edges
-    }
-    
-    const maxDrag = coverSize * 0.6;
-    newOffset = Math.max(-maxDrag, Math.min(maxDrag, newOffset));
-    
-    setDragOffset(newOffset);
-  }, [isMobile, currentIndex, tracks.length, coverSize]);
-
-  const handleTouchEnd = useCallback(() => {
-    if (!isMobile) return;
-    if (!isDragging && isHorizontalSwipeRef.current !== true) {
-      isHorizontalSwipeRef.current = null;
-      return;
-    }
-    
-    setIsDragging(false);
-    isHorizontalSwipeRef.current = null;
-    
-    const velocity = velocityRef.current;
-    const offset = dragOffset;
-    
-    const velocityThreshold = 0.18;
-    const positionThreshold = coverSize * 0.2;
-    
-    let targetIndex = currentIndex;
-    
-    if (Math.abs(velocity) > velocityThreshold) {
-      if (velocity > 0 && currentIndex > 0) {
-        targetIndex = currentIndex - 1;
-      } else if (velocity < 0 && currentIndex < tracks.length - 1) {
-        targetIndex = currentIndex + 1;
-      }
-    } else if (Math.abs(offset) > positionThreshold) {
-      if (offset > 0 && currentIndex > 0) {
-        targetIndex = currentIndex - 1;
-      } else if (offset < 0 && currentIndex < tracks.length - 1) {
-        targetIndex = currentIndex + 1;
-      }
-    }
-    
-    if (targetIndex !== currentIndex) {
-      const direction = targetIndex > currentIndex ? -1 : 1;
-      const adjustedOffset = offset + direction * coverSize;
-      animateLinear(adjustedOffset, targetIndex);
+  const handlePan = useCallback((_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    if (isMobile) {
+      swipeOffset.set(info.offset.x);
     } else {
-      animateLinear(offset, currentIndex);
+      // Desktop: diagonal drag
+      const diagonal = (info.offset.x - info.offset.y) / 2;
+      targetX.set(-currentIndex * DIAGONAL_OFFSET + diagonal * 0.6);
+      targetY.set(currentIndex * DIAGONAL_OFFSET - diagonal * 0.6);
     }
-    
-    velocityRef.current = 0;
-  }, [isMobile, isDragging, dragOffset, currentIndex, tracks.length, coverSize, animateLinear]);
+  }, [isMobile, currentIndex, swipeOffset, targetX, targetY]);
 
-  // Slider handler (touchpad/trackpad) - Desktop
-  const handleSliderChange = useCallback((clientX: number) => {
-    if (!sliderRef.current) return;
-    const rect = sliderRef.current.getBoundingClientRect();
-    const progress = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    const newIndex = Math.round(progress * (tracks.length - 1));
+  const handlePanEnd = useCallback((_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    setIsDragging(false);
+
+    const threshold = isMobile ? 50 : 80;
+    const velocity = isMobile ? info.velocity.x : (info.velocity.x - info.velocity.y) / 2;
+    const offset = isMobile ? info.offset.x : (info.offset.x - info.offset.y) / 2;
+
+    let newIndex = currentIndex;
+
+    if (Math.abs(offset) > threshold || Math.abs(velocity) > 300) {
+      if (offset > 0 || velocity > 300) {
+        newIndex = Math.max(0, currentIndex - 1);
+      } else {
+        newIndex = Math.min(tracks.length - 1, currentIndex + 1);
+      }
+    }
+
+    swipeOffset.set(0);
+    onIndexChange(newIndex);
+    onTrackChange?.(tracks[newIndex]);
+  }, [isMobile, currentIndex, tracks, swipeOffset, onIndexChange, onTrackChange]);
+
+  // Track name click handler
+  const handleTrackClick = useCallback((index: number) => {
+    onIndexChange(index);
+    onTrackChange?.(tracks[index]);
+  }, [tracks, onIndexChange, onTrackChange]);
+
+  // Slider change handler
+  const handleSliderChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    const newIndex = Math.round(value * (tracks.length - 1));
     if (newIndex !== currentIndex) {
       onIndexChange(newIndex);
-      if (onTrackChange) onTrackChange(tracks[newIndex]);
+      onTrackChange?.(tracks[newIndex]);
     }
   }, [tracks, currentIndex, onIndexChange, onTrackChange]);
 
-  const handleSliderMouseDown = useCallback((e: MouseEvent) => {
-    e.preventDefault();
-    handleSliderChange(e.clientX);
-    
-    const handleMove = (ev: globalThis.MouseEvent) => handleSliderChange(ev.clientX);
-    const handleUp = () => {
-      document.removeEventListener('mousemove', handleMove);
-      document.removeEventListener('mouseup', handleUp);
-    };
-    
-    document.addEventListener('mousemove', handleMove);
-    document.addEventListener('mouseup', handleUp);
-  }, [handleSliderChange]);
-
-  // Calculate cover styles - Lady Gaga style: centered active, side covers in corners
-  const getCardStyle = (index: number): { style: React.CSSProperties; opacity: number; isCenter: boolean } | null => {
+  // Calculate style for each cover
+  const getCoverTransform = useCallback((index: number) => {
     const diff = index - currentIndex;
-    
-    let adjustedDiff = diff;
-    if (isMobile) {
-      const normalizedDrag = dragOffset / coverSize;
-      adjustedDiff = diff - normalizedDrag;
-    }
-    
-    // Only render nearby covers
-    if (diff < -1 || diff > 1) return null;
-    
-    let scale = 1;
-    let xOffset = 0;
-    let yOffset = 0;
-    let opacity = 1;
-    let zIndex = 5;
-    
-    const absAdjustedDiff = Math.abs(adjustedDiff);
-    const isCenter = absAdjustedDiff < 0.5;
-    
-    if (absAdjustedDiff < 0.5) {
-      // Center cover - perfectly centered, like Lady Gaga
-      xOffset = adjustedDiff * coverSize * 0.8;
-      yOffset = 0;
-      scale = 1;
-      opacity = 1;
-      zIndex = 10;
-    } else if (adjustedDiff < 0) {
-      // Previous cover - top left corner, partially visible
-      const t = 1 + adjustedDiff; // 0 to 0.5
-      const baseOffset = isMobile ? coverSize * 0.85 : coverSize * 1.0;
-      xOffset = -baseOffset + t * coverSize * 0.4;
-      yOffset = isMobile 
-        ? -coverSize * 0.55 + t * coverSize * 0.3
-        : -coverSize * 0.65 + t * coverSize * 0.3;
-      scale = 0.95;
-      opacity = 0.6;
-      zIndex = 5;
-    } else {
-      // Next cover - bottom right corner, partially visible
-      const t = adjustedDiff - 1; // -0.5 to 0
-      const baseOffset = isMobile ? coverSize * 0.85 : coverSize * 1.0;
-      xOffset = baseOffset + t * coverSize * 0.4;
-      yOffset = isMobile 
-        ? coverSize * 0.55 + t * coverSize * 0.3
-        : coverSize * 0.65 + t * coverSize * 0.3;
-      scale = 0.95;
-      opacity = 0.6;
-      zIndex = 5;
-    }
-    
-    // Smooth transition, no bounce
-    const transition = isDragging 
-      ? 'none' 
-      : 'transform 0.45s cubic-bezier(0.25, 0.1, 0.25, 1), opacity 0.4s ease-out';
-    
-    return {
-      style: {
-        transform: `translateX(${xOffset}px) translateY(${yOffset}px) scale(${scale})`,
-        opacity,
-        zIndex,
-        width: coverSize,
-        height: coverSize,
-        willChange: 'transform, opacity',
-        transition,
-      },
-      opacity,
-      isCenter,
-    };
-  };
 
-  // Track selection handler
-  const handleTrackSelect = useCallback((index: number) => {
-    if (index !== currentIndex) {
-      onIndexChange(index);
-      if (onTrackChange) onTrackChange(tracks[index]);
-    }
-  }, [currentIndex, onIndexChange, onTrackChange, tracks]);
+    // Z-index layering: upper-left covers on top
+    // Previous covers (diff < 0) should be on top (higher z-index)
+    const zIndex = diff === 0 ? 20 : (diff < 0 ? 30 + diff : 10 - diff);
 
-  const sliderProgress = tracks.length > 1 ? (currentIndex / (tracks.length - 1)) * 100 : 0;
-  // Full viewport height on desktop, slightly less on mobile to show music collection
-  const carouselHeight = isMobile ? 'min-h-[65vh]' : 'min-h-[100vh]';
+    // Opacity
+    const opacity = diff === 0 ? 1 : 0.5;
+
+    // Scale
+    const scale = diff === 0 ? 1 : 0.88;
+
+    // Position offset along diagonal: upper-left to lower-right
+    const offsetX = diff * DIAGONAL_OFFSET;
+    const offsetY = -diff * DIAGONAL_OFFSET;
+
+    return { zIndex, opacity, scale, offsetX, offsetY };
+  }, [currentIndex]);
+
+  // Combined transform for the 3D grid
+  const gridX = useTransform(springX, (x) => x);
+  const gridY = useTransform(springY, (y) => y);
+
+  // Mobile swipe interpolation
+  const mobileX = useTransform(swipeOffset, (x) => x);
 
   return (
-    <div className={cn("relative w-full flex flex-col bg-background overflow-hidden", carouselHeight)}>
-      
-      {/* Gradient overlay on left - Lady Gaga style */}
-      <div 
-        className="absolute top-0 left-0 z-[15] h-full w-1/4 pointer-events-none"
-        style={{
-          background: isMobile 
-            ? 'linear-gradient(to right, hsl(40,20%,98%) 0%, hsl(40,20%,98%,0.5) 40%, transparent 100%)'
-            : 'linear-gradient(to right, hsl(40,20%,98%) 0%, hsl(40,20%,98%) 25%, hsl(40,20%,98%,0.6) 60%, transparent 100%)'
-        }}
-      />
-
-      {/* MOBILE: Track names above covers - horizontal scroll, centered */}
-      {isMobile && (
-        <div className="pt-20 pb-4 px-2 relative z-20">
-          <div className="flex items-center justify-center gap-2 overflow-x-auto hide-scrollbar">
-            {tracks.map((track, index) => (
-              <button
-                key={track.id}
-                onClick={() => handleTrackSelect(index)}
-                className={cn(
-                  'flex-shrink-0 text-xs font-medium whitespace-nowrap transition-all duration-300',
-                  'px-3 py-1.5 rounded-sm',
-                  index === currentIndex 
-                    ? 'border border-foreground text-foreground' 
-                    : 'text-foreground/30 border border-transparent'
-                )}
-              >
-                {track.title}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* DESKTOP: Track list on left side - vertical list like Lady Gaga */}
+    <section
+      ref={containerRef}
+      className="relative w-full h-screen overflow-visible bg-background"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      style={{ touchAction: 'pan-y' }}
+    >
+      {/* Desktop Track Names - Left Side */}
       {!isMobile && (
-        <div className="absolute left-6 lg:left-14 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-1">
+        <div className="absolute left-8 lg:left-16 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-2">
           {tracks.map((track, index) => (
             <button
               key={track.id}
-              onClick={() => handleTrackSelect(index)}
+              onClick={() => handleTrackClick(index)}
               className={cn(
-                'text-left text-sm font-medium transition-all duration-300',
-                'hover:text-foreground px-3 py-1.5',
-                index === currentIndex 
-                  ? 'border border-foreground text-foreground rounded-sm' 
-                  : 'text-foreground/35 border border-transparent hover:text-foreground/70'
+                'text-left px-4 py-2 text-sm font-medium transition-all duration-300',
+                'hover:text-foreground',
+                index === currentIndex
+                  ? 'text-foreground border border-foreground/30 rounded-lg'
+                  : 'text-muted-foreground/50 border border-transparent'
               )}
             >
               {track.title}
@@ -366,76 +209,178 @@ export const CoverCarousel = memo(function CoverCarousel({
         </div>
       )}
 
-      {/* Main carousel area */}
-      <div className="flex-1 flex items-center justify-center">
-        <div
-          ref={containerRef}
-          className="relative w-full h-full select-none"
-          style={{ touchAction: 'pan-y' }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          {/* Covers container - perfectly centered */}
-          <div 
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-            style={{ width: coverSize, height: coverSize }}
+      {/* Mobile Track Names - Center Carousel */}
+      {isMobile && (
+        <div className="absolute top-20 left-0 right-0 z-40 overflow-visible px-4">
+          <motion.div
+            className="flex items-center justify-center"
+            style={{ x: mobileX }}
           >
-            {tracks.map((track, index) => {
-              const result = getCardStyle(index);
-              if (!result) return null;
-              
-              const { style, isCenter, opacity } = result;
-              
-              return (
-                <div
-                  key={track.id}
-                  className="absolute top-0 left-0"
-                  style={style}
-                >
-                  <div 
+            <div className="flex items-center gap-6">
+              {tracks.map((track, index) => {
+                const diff = index - currentIndex;
+                const isActive = diff === 0;
+                return (
+                  <motion.button
+                    key={track.id}
+                    onClick={() => handleTrackClick(index)}
                     className={cn(
-                      "w-full h-full overflow-hidden select-none relative rounded-sm",
-                      isCenter && "shadow-[0_25px_80px_-20px_rgba(0,0,0,0.35)]"
+                      'flex-shrink-0 px-3 py-1.5 text-sm font-medium transition-all duration-300 whitespace-nowrap',
+                      isActive
+                        ? 'text-foreground border border-foreground/30 rounded-lg'
+                        : 'text-muted-foreground/40 border border-transparent'
                     )}
+                    animate={{
+                      x: -currentIndex * 100,
+                      opacity: Math.max(0.15, 1 - Math.abs(diff) * 0.5),
+                      scale: isActive ? 1 : 0.85,
+                    }}
+                    transition={springConfig}
                   >
-                    <img
-                      src={track.coverUrl}
-                      alt={`Обложка альбома ${track.title} - ${track.format} ${track.year}`}
-                      className="w-full h-full object-cover pointer-events-none"
-                      draggable={false}
-                    />
-                    {/* Darken overlay for side covers */}
-                    {!isCenter && (
-                      <div 
-                        className="absolute inset-0 bg-background/50 pointer-events-none"
-                      />
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                    {track.title}
+                  </motion.button>
+                );
+              })}
+            </div>
+          </motion.div>
         </div>
-      </div>
+      )}
 
-      {/* Slider / Touchpad control - positioned at bottom center, like Lady Gaga */}
-      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 w-[50%] max-w-[450px]">
+      {/* 3D Cover Scene */}
+      <motion.div
+        className="absolute inset-0 flex items-center justify-center"
+        style={{
+          x: isMobile ? mobileX : gridX,
+          y: isMobile ? 0 : gridY,
+          perspective: 1200,
+        }}
+        drag={isMobile ? 'x' : false}
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.15}
+        onPanStart={handlePanStart}
+        onPan={handlePan}
+        onPanEnd={handlePanEnd}
+      >
+        {/* Canvas Grid - larger than viewport for floating effect */}
         <div
-          ref={sliderRef}
-          className="relative h-[1px] bg-foreground/20 cursor-pointer"
-          onMouseDown={handleSliderMouseDown}
+          className="relative"
+          style={{
+            width: isMobile ? '100%' : 3300,
+            height: isMobile ? coverSize * 1.5 : 2400,
+          }}
         >
-          {/* Progress thumb - solid white like Lady Gaga */}
-          <div 
-            className="absolute top-1/2 -translate-y-1/2 h-[4px] bg-foreground rounded-full transition-all duration-200"
-            style={{ 
-              width: `${Math.max(12, 100 / tracks.length)}%`,
-              left: `${sliderProgress * (1 - 1/tracks.length)}%`
+          {tracks.map((track, index) => {
+            const style = getCoverTransform(index);
+            const isCenter = index === currentIndex;
+
+            return (
+              <motion.div
+                key={track.id}
+                className={cn(
+                  'absolute cover-card',
+                  isCenter ? 'cursor-default' : 'cursor-pointer'
+                )}
+                style={{
+                  width: coverSize,
+                  height: coverSize,
+                  left: '50%',
+                  top: '50%',
+                  marginLeft: -coverSize / 2,
+                  marginTop: -coverSize / 2,
+                  zIndex: style.zIndex,
+                  transformStyle: 'preserve-3d',
+                }}
+                animate={{
+                  x: isMobile
+                    ? (index - currentIndex) * (coverSize + 30)
+                    : style.offsetX,
+                  y: isMobile ? 0 : style.offsetY,
+                  scale: style.scale,
+                  opacity: style.opacity,
+                  rotateX: isCenter && !isMobile ? tiltX.get() : 0,
+                  rotateY: isCenter && !isMobile ? tiltY.get() : 0,
+                }}
+                transition={{
+                  type: 'spring',
+                  stiffness: 40,
+                  damping: 20,
+                }}
+                onMouseEnter={() => isCenter && setIsHoveringCenter(true)}
+                onMouseLeave={() => setIsHoveringCenter(false)}
+                onClick={() => !isCenter && handleTrackClick(index)}
+                whileHover={isCenter && !isMobile ? { scale: 1.02 } : {}}
+              >
+                {/* Shadow for 3D depth - upper covers cast shadow */}
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    boxShadow: isCenter
+                      ? '0 30px 80px -20px rgba(0,0,0,0.35)'
+                      : index < currentIndex
+                        ? '15px 15px 40px rgba(0,0,0,0.2)'
+                        : '0 20px 60px rgba(0,0,0,0.15)',
+                  }}
+                />
+
+                {/* Cover Image */}
+                <img
+                  src={track.coverUrl}
+                  alt={`${track.title} - ${track.format} ${track.year}`}
+                  className="w-full h-full object-cover"
+                  draggable={false}
+                />
+
+                {/* Darkening overlay for non-center covers */}
+                {!isCenter && (
+                  <div className="absolute inset-0 bg-foreground/25 pointer-events-none" />
+                )}
+              </motion.div>
+            );
+          })}
+        </div>
+      </motion.div>
+
+      {/* Bottom Slider Controller - oval pill style */}
+      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-40 w-64 md:w-80">
+        <div className="relative">
+          {/* Track background */}
+          <div className="h-1 bg-muted rounded-full overflow-hidden">
+            <motion.div
+              className="h-full bg-foreground/40 rounded-full"
+              animate={{
+                width: `${((currentIndex + 1) / tracks.length) * 100}%`,
+              }}
+              transition={springConfig}
+            />
+          </div>
+
+          {/* Invisible slider input for interaction */}
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.001"
+            value={currentIndex / Math.max(1, tracks.length - 1)}
+            onChange={handleSliderChange}
+            className="absolute inset-0 w-full h-8 -mt-3.5 opacity-0 cursor-pointer"
+            style={{ touchAction: 'none' }}
+          />
+
+          {/* Thumb indicator */}
+          <motion.div
+            className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-foreground rounded-full shadow-lg pointer-events-none"
+            animate={{
+              left: `calc(${(currentIndex / Math.max(1, tracks.length - 1)) * 100}% - 8px)`,
             }}
+            transition={springConfig}
           />
         </div>
+
+        {/* Track indicator text */}
+        <p className="text-center text-xs text-muted-foreground mt-4">
+          {currentIndex + 1} / {tracks.length}
+        </p>
       </div>
-    </div>
+    </section>
   );
 });
