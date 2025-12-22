@@ -27,41 +27,47 @@ export interface SocialLink {
 
 export const socialLinks: SocialLink[] = [
   {
-    name: "Telegram",
-    url: "https://t.me/aladin_vanya",
-    icon: "https://static.tildacdn.com/tild3661-6234-4466-b033-356336323230/telegram.svg",
+    name: "RUTUBE",
+    url: "https://rutube.ru/u/VanyaAladin/",
+    icon: "https://thb.tildacdn.com/tild3763-6262-4133-a562-616634633236/-/resize/20x/rutube.png",
     rel: "noopener nofollow",
   },
   {
-    name: "VK",
-    url: "https://vk.com/aladin_vanya",
-    icon: "https://static.tildacdn.com/tild6562-6235-4234-b666-653733653033/vk.svg",
+    name: "YouTube",
+    url: "https://www.youtube.com/@aladin_vanya",
+    icon: "https://static.tildacdn.com/tild6138-6563-4732-b039-643833336134/img_466121.png",
     rel: "noopener nofollow",
   },
   {
     name: "Instagram",
     url: "https://www.instagram.com/aladin_vanya/",
-    icon: "https://static.tildacdn.com/tild3834-6232-4665-a334-613137313132/instagram.svg",
+    icon: "https://static.tildacdn.com/tild6262-3138-4637-b165-313665386633/Tilda_Icons_26sn_ins.svg",
     rel: "noopener nofollow",
   },
   {
     name: "TikTok",
     url: "https://www.tiktok.com/@aladin_vanya",
-    icon: "https://static.tildacdn.com/tild3939-6534-4262-b961-343933353530/tiktok.svg",
+    icon: "https://static.tildacdn.com/tild6664-6333-4365-b939-643662653138/Tilda_Icons_26sn_tik.svg",
     rel: "noopener nofollow",
   },
   {
-    name: "YouTube",
-    url: "https://www.youtube.com/@VanyaAladin",
-    icon: "https://static.tildacdn.com/tild3437-6361-4932-b762-623261343137/youtube.svg",
+    name: "Telegram",
+    url: "https://t.me/aladin_vanya",
+    icon: "https://static.tildacdn.com/tild6137-3464-4261-b066-333266616436/Tilda_Icons_26sn_tel.svg",
+    rel: "noopener nofollow",
+  },
+  {
+    name: "VK",
+    url: "https://vk.com/aladin_vanya",
+    icon: "https://static.tildacdn.com/tild6365-3063-4138-b037-616331333338/Tilda_Icons_26sn_vk.svg",
     rel: "noopener nofollow",
   },
 ];
 
 export const contactInfo = {
   booking: {
-    name: "Ваня",
-    phone: "+7 926 123-45-67",
+    name: "Снежана",
+    phone: "+7 926 571 36 77",
   },
   pr: {
     email: "aladinteam27@gmail.com",
@@ -69,9 +75,9 @@ export const contactInfo = {
 };
 
 export const latestRelease = {
-  title: "Девочка-весна",
+  title: "Плакала",
   year: 2025,
   type: "Сингл",
-  listenUrl: "https://band.link/devochka-vesna",
-  presaveUrl: "https://band.link/devochka-vesna",
+  listenUrl: "https://band.link/plakala",
+  presaveUrl: "https://band.link/plakala",
 };

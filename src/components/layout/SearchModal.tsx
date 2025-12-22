@@ -90,12 +90,12 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
       
       {/* Modal with slide animation */}
       <div 
-        className={`fixed inset-x-0 top-0 z-[101] transition-all duration-300 ease-out ${
+        className={`fixed inset-x-0 top-0 z-[101] px-4 transition-all duration-300 ease-out ${
           isOpen ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
         }`}
       >
         <div 
-          className="w-full max-w-xl mx-4 md:mx-auto mt-16 md:mt-24 bg-background rounded-2xl shadow-lg overflow-hidden"
+          className="w-full max-w-xl mx-auto mt-16 md:mt-24 bg-background rounded-2xl shadow-lg overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Search input - minimal */}

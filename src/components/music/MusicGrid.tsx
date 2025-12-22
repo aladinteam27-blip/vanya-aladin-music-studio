@@ -17,14 +17,19 @@ export const MusicGrid = memo(function MusicGrid({
 }: MusicGridProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [isMobile, setIsMobile] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(4);
+  // Use a ref to persist visible count across re-renders
+  const [visibleCount, setVisibleCount] = useState(() => {
+    // Initialize based on window width
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768 ? 4 : 4;
+    }
+    return 4;
+  });
 
   useEffect(() => {
     const checkMobile = () => {
-      const mobile = window.innerWidth < 768;
-      setIsMobile(mobile);
-      // Mobile: 4 blocks, Desktop: 4 blocks (3-4 per row)
-      setVisibleCount(mobile ? 4 : 4);
+      setIsMobile(window.innerWidth < 768);
+      // Don't reset visibleCount on resize - keep user's expanded state
     };
     checkMobile();
     window.addEventListener('resize', checkMobile);
