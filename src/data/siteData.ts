@@ -1,6 +1,6 @@
 // Site data configuration
 
-export const logoSrc = "https://static.tildacdn.com/tild3664-3762-4031-a330-356238346564/VA_Logo_Black.png";
+export const logoSrc = "https://static.tildacdn.com/tild6566-3531-4636-b337-303332613731/Vanya_Aladin_logo_20.svg";
 
 export interface NavLink {
   href: string;
