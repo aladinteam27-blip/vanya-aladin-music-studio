@@ -126,7 +126,7 @@ export const Header = memo(function Header() {
                 })}
               </div>
 
-              {/* Center Logo */}
+              {/* Center Logo - BLACK */}
               <a
                 href="https://vanyaaladin.com/"
                 aria-label="Главная"
@@ -138,6 +138,7 @@ export const Header = memo(function Header() {
                   width={160}
                   height={64}
                   className="h-12 lg:h-14 w-auto object-contain"
+                  style={{ filter: 'brightness(0)' }}
                   loading="eager"
                   fetchPriority="high"
                 />
@@ -173,7 +174,7 @@ export const Header = memo(function Header() {
               </div>
             </nav>
 
-            {/* Mobile: Centered Logo */}
+            {/* Mobile: Centered Logo - BLACK */}
             <a
               href="https://vanyaaladin.com/"
               aria-label="Главная"
@@ -185,6 +186,7 @@ export const Header = memo(function Header() {
                 width={120}
                 height={48}
                 className="h-9 w-auto object-contain"
+                style={{ filter: 'brightness(0)' }}
                 loading="eager"
                 fetchPriority="high"
               />
