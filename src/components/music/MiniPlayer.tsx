@@ -67,20 +67,20 @@ export const MiniPlayer = memo(function MiniPlayer({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         className={cn(
-          // Pill shape - wider horizontally, more compact height
+          // Pill shape - wider horizontally, compact height
           'flex items-center gap-2.5 px-4 py-2.5',
-          'bg-charcoal text-warm-white rounded-full',
-          'shadow-[0_6px_24px_rgba(0,0,0,0.25)]',
+          'bg-foreground text-background rounded-full',
+          'shadow-[0_8px_32px_rgba(0,0,0,0.35)]',
           'transition-all duration-200',
-          'hover:shadow-[0_8px_32px_rgba(0,0,0,0.35)]',
+          'hover:shadow-[0_12px_40px_rgba(0,0,0,0.45)]',
           'active:scale-95',
           // Blue focus ring - appears on play, disappears on outside click
-          showFrame && 'ring-2 ring-[hsl(230,75%,60%)] ring-offset-2 ring-offset-background'
+          showFrame && 'ring-2 ring-[hsl(var(--brand-blue))] ring-offset-2 ring-offset-background'
         )}
         aria-label={isPlaying ? 'Пауза' : 'Воспроизвести'}
       >
-        {/* Play/Pause icon - circle with icon */}
-        <span className="w-7 h-7 flex items-center justify-center border border-warm-white/25 rounded-full">
+        {/* Play/Pause icon */}
+        <span className="w-7 h-7 flex items-center justify-center border border-background/25 rounded-full">
           {isPlaying ? (
             <Pause size={12} fill="currentColor" strokeWidth={0} />
           ) : (
@@ -94,7 +94,7 @@ export const MiniPlayer = memo(function MiniPlayer({
             <span 
               key={i}
               className={cn(
-                "w-[2px] bg-warm-white rounded-full transition-all duration-150",
+                "w-[2px] bg-background rounded-full transition-all duration-150",
                 shouldAnimateWave && "animate-wave-bar"
               )}
               style={{ 
