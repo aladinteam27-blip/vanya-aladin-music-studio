@@ -10,8 +10,8 @@ interface CoverCarouselProps {
   onTrackChange?: (track: Track) => void;
 }
 
-// Spring config - smooth, viscous, expensive feel
-const springConfig = { stiffness: 50, damping: 25, mass: 1.2 };
+// Spring config - viscous, expensive like Lady Gaga
+const springConfig = { stiffness: 100, damping: 30 };
 const snapSpring = { stiffness: 300, damping: 35 };
 
 export const CoverCarousel = memo(function CoverCarousel({
@@ -29,16 +29,17 @@ export const CoverCarousel = memo(function CoverCarousel({
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
   
-  // Spring values for smooth canvas movement
+  // Spring values for smooth canvas floating movement
   const canvasX = useSpring(0, springConfig);
   const canvasY = useSpring(0, springConfig);
   
   // 3D rotation for center cover
-  const rotateY = useSpring(0, { stiffness: 100, damping: 20 });
-  const rotateX = useSpring(0, { stiffness: 100, damping: 20 });
+  const rotateY = useSpring(0, springConfig);
+  const rotateX = useSpring(0, springConfig);
   
   // Mobile drag offset
-  const dragX = useMotionValue(0);
+  const dragY = useMotionValue(0);
+  const textDragY = useSpring(0, snapSpring);
 
   // Check mobile on mount
   useEffect(() => {
@@ -48,7 +49,7 @@ export const CoverCarousel = memo(function CoverCarousel({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Handle mouse move - canvas follows cursor (inverted)
+  // Handle mouse move - canvas follows cursor (inverted) with floating effect
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (isMobile || isDragging) return;
 
@@ -66,14 +67,13 @@ export const CoverCarousel = memo(function CoverCarousel({
     mouseX.set(normalizedX);
     mouseY.set(normalizedY);
 
-    // Move canvas in opposite direction (inverted movement)
-    // Large canvas moves slightly to reveal different areas
-    canvasX.set(-normalizedX * 80);
-    canvasY.set(-normalizedY * 60);
+    // Move canvas in opposite direction (inverted movement) - floating effect
+    canvasX.set(-normalizedX * 120);
+    canvasY.set(-normalizedY * 100);
 
-    // 3D tilt effect
-    rotateY.set(-normalizedX * 8);
-    rotateX.set(normalizedY * 5);
+    // 3D tilt effect for center cover
+    rotateY.set(-normalizedX * 12);
+    rotateX.set(normalizedY * 8);
   }, [isMobile, isDragging, mouseX, mouseY, canvasX, canvasY, rotateY, rotateX]);
 
   // Reset on mouse leave
@@ -90,24 +90,25 @@ export const CoverCarousel = memo(function CoverCarousel({
     onTrackChange?.(tracks[index]);
   }, [tracks, onIndexChange, onTrackChange]);
 
-  // Mobile drag handlers
+  // Mobile drag handlers - vertical swipe for 3D diagonal
   const handleDragStart = useCallback(() => {
     setIsDragging(true);
   }, []);
 
-  const handleDrag = useCallback((_: any, info: { offset: { x: number } }) => {
-    dragX.set(info.offset.x);
-  }, [dragX]);
+  const handleDrag = useCallback((_: any, info: { offset: { y: number } }) => {
+    dragY.set(info.offset.y);
+    textDragY.set(info.offset.y);
+  }, [dragY, textDragY]);
 
-  const handleDragEnd = useCallback((_: any, info: { offset: { x: number }; velocity: { x: number } }) => {
+  const handleDragEnd = useCallback((_: any, info: { offset: { y: number }; velocity: { y: number } }) => {
     setIsDragging(false);
     
-    const threshold = 60;
+    const threshold = 50;
     const velocityThreshold = 400;
     let newIndex = currentIndex;
 
-    if (Math.abs(info.offset.x) > threshold || Math.abs(info.velocity.x) > velocityThreshold) {
-      if (info.offset.x > 0 || info.velocity.x > velocityThreshold) {
+    if (Math.abs(info.offset.y) > threshold || Math.abs(info.velocity.y) > velocityThreshold) {
+      if (info.offset.y > 0 || info.velocity.y > velocityThreshold) {
         newIndex = Math.max(0, currentIndex - 1);
       } else {
         newIndex = Math.min(tracks.length - 1, currentIndex + 1);
@@ -115,13 +116,14 @@ export const CoverCarousel = memo(function CoverCarousel({
     }
 
     // Snap animation
-    animate(dragX, 0, snapSpring);
+    animate(dragY, 0, snapSpring);
+    animate(textDragY, 0, snapSpring);
     
     if (newIndex !== currentIndex) {
       onIndexChange(newIndex);
       onTrackChange?.(tracks[newIndex]);
     }
-  }, [currentIndex, tracks, dragX, onIndexChange, onTrackChange]);
+  }, [currentIndex, tracks, dragY, textDragY, onIndexChange, onTrackChange]);
 
   // Slider handler
   const handleSliderChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -133,40 +135,46 @@ export const CoverCarousel = memo(function CoverCarousel({
     }
   }, [tracks, currentIndex, onIndexChange, onTrackChange]);
 
-  // Cover styles based on position
+  // Cover styles based on position - true 3D diagonal
   const getCoverStyle = useCallback((index: number) => {
     const diff = index - currentIndex;
     const absPos = Math.abs(diff);
     
-    // Diagonal positioning like Lady Gaga:
-    // Previous covers (diff < 0) → upper-left, layered ON TOP
-    // Next covers (diff > 0) → lower-right, layered BELOW
-    const diagonalX = isMobile ? 0 : 320; // horizontal spread
-    const diagonalY = isMobile ? 0 : 240; // vertical spread
-    const mobileOffset = 280;
+    // Diagonal positioning:
+    // Previous covers (diff < 0) → upper-left, ON TOP
+    // Next covers (diff > 0) → lower-right, BELOW
+    const diagonalSpread = isMobile ? 180 : 380;
+    const zDepth = isMobile ? 150 : 280; // translateZ depth
     
     return {
-      // Z-index: prev covers on top (higher z), next covers below (lower z)
-      zIndex: diff === 0 ? 20 : (diff < 0 ? 30 + diff : 10 - diff),
+      // Z-index: prev covers on top, next covers below
+      zIndex: diff === 0 ? 30 : (diff < 0 ? 25 + diff : 15 - diff),
       // Opacity: center bright, others fade
-      opacity: diff === 0 ? 1 : Math.max(0.25, 0.65 - absPos * 0.2),
-      // Scale: center full, others shrink with distance
-      scale: diff === 0 ? 1 : Math.max(0.55, 0.82 - absPos * 0.12),
-      // Position: prev goes upper-left (neg X, neg Y), next goes lower-right (pos X, pos Y)
-      offsetX: isMobile ? diff * mobileOffset : diff * diagonalX,
-      offsetY: isMobile ? 0 : diff * diagonalY,
-      // Center cover has special interactions
+      opacity: diff === 0 ? 1 : Math.max(0.3, 0.7 - absPos * 0.25),
+      // Scale: center full, others shrink
+      scale: diff === 0 ? 1 : Math.max(0.5, 0.8 - absPos * 0.15),
+      // Position: diagonal spread
+      offsetX: isMobile ? diff * 60 : diff * diagonalSpread,
+      offsetY: diff * diagonalSpread,
+      // Z depth: center at front, others recede
+      translateZ: diff === 0 ? 0 : -absPos * zDepth,
       isCenter: diff === 0,
+      diff,
     };
   }, [currentIndex, isMobile]);
 
   // Interpolated drag transform for mobile
-  const mobileSlideX = useTransform(dragX, (x) => x * 0.3);
+  const mobileDragOffset = useTransform(dragY, (y) => y * 0.4);
+
+  // Text drum offset for mobile
+  const textOffset = useTransform(textDragY, (y) => y * 0.6);
+
+  const coverSize = isMobile ? 240 : 400;
 
   return (
     <section
       ref={containerRef}
-      className="relative w-full h-screen overflow-hidden bg-foreground"
+      className="relative w-screen h-screen overflow-visible bg-background"
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       style={{ touchAction: 'pan-y' }}
@@ -183,8 +191,8 @@ export const CoverCarousel = memo(function CoverCarousel({
                 className={cn(
                   'text-left px-3 py-1.5 text-sm font-medium transition-all duration-300',
                   isActive
-                    ? 'text-background border border-background/50 rounded'
-                    : 'text-background/40 hover:text-background/70 border border-transparent'
+                    ? 'text-foreground border border-foreground/30 rounded'
+                    : 'text-foreground/40 hover:text-foreground/70 border border-transparent'
                 )}
               >
                 {track.title}
@@ -194,68 +202,71 @@ export const CoverCarousel = memo(function CoverCarousel({
         </nav>
       )}
 
-      {/* Mobile: Track names carousel */}
+      {/* Mobile: Vertical drum text - synchronized with covers */}
       {isMobile && (
-        <div className="absolute top-24 left-0 right-0 z-50 flex justify-center overflow-visible">
-          <div className="flex items-center gap-4">
-            {tracks.map((track, index) => {
-              const diff = index - currentIndex;
-              const isActive = diff === 0;
-              const opacity = isActive ? 1 : Math.max(0.2, 0.5 - Math.abs(diff) * 0.2);
-              
-              return (
-                <motion.button
-                  key={track.id}
-                  onClick={() => handleTrackClick(index)}
-                  className={cn(
-                    'flex-shrink-0 px-3 py-1 text-sm font-medium whitespace-nowrap transition-colors',
-                    isActive
-                      ? 'text-background border border-background/50 rounded'
-                      : 'text-background/40 border border-transparent'
-                  )}
-                  animate={{
-                    x: -currentIndex * 120,
-                    opacity,
-                    scale: isActive ? 1 : 0.9,
-                    filter: isActive ? 'blur(0px)' : `blur(${Math.min(2, Math.abs(diff))}px)`,
-                  }}
-                  transition={{ type: 'spring', ...snapSpring }}
-                >
-                  {track.title}
-                </motion.button>
-              );
-            })}
-          </div>
-        </div>
+        <motion.div 
+          className="absolute left-0 right-0 top-20 z-50 flex flex-col items-center justify-center overflow-visible"
+          style={{ y: textOffset }}
+        >
+          {tracks.map((track, index) => {
+            const diff = index - currentIndex;
+            const isActive = diff === 0;
+            const opacity = isActive ? 1 : Math.max(0.15, 0.4 - Math.abs(diff) * 0.15);
+            const scale = isActive ? 1 : 0.75;
+            const blur = isActive ? 0 : Math.min(3, Math.abs(diff) * 1.5);
+            
+            return (
+              <motion.button
+                key={track.id}
+                onClick={() => handleTrackClick(index)}
+                className={cn(
+                  'px-4 py-2 text-base font-medium whitespace-nowrap transition-colors',
+                  isActive
+                    ? 'text-foreground border border-foreground/40 rounded'
+                    : 'text-foreground/30 border border-transparent'
+                )}
+                animate={{
+                  y: -currentIndex * 44,
+                  opacity,
+                  scale,
+                  filter: `blur(${blur}px)`,
+                }}
+                transition={{ type: 'spring', ...springConfig }}
+              >
+                {track.title}
+              </motion.button>
+            );
+          })}
+        </motion.div>
       )}
 
-      {/* 3D Canvas Scene */}
+      {/* 3D Canvas Scene with perspective */}
       <motion.div
-        className="absolute inset-0 flex items-center justify-center"
+        className="absolute inset-0 flex items-center justify-center overflow-visible"
         style={{
           perspective: 1200,
-          x: isMobile ? mobileSlideX : canvasX,
-          y: isMobile ? 0 : canvasY,
+          perspectiveOrigin: 'center center',
         }}
       >
-        {/* Large floating grid */}
+        {/* Floating canvas that follows mouse */}
         <motion.div
-          className="relative"
+          className="relative overflow-visible"
           style={{
-            width: isMobile ? '100vw' : 2400,
-            height: isMobile ? 'auto' : 1800,
+            width: isMobile ? '100%' : 2800,
+            height: isMobile ? '100%' : 2000,
             transformStyle: 'preserve-3d',
+            x: isMobile ? 0 : canvasX,
+            y: isMobile ? mobileDragOffset : canvasY,
           }}
-          drag={isMobile ? 'x' : false}
-          dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.2}
+          drag={isMobile ? 'y' : false}
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={0.15}
           onDragStart={handleDragStart}
           onDrag={handleDrag}
           onDragEnd={handleDragEnd}
         >
           {tracks.map((track, index) => {
             const style = getCoverStyle(index);
-            const coverSize = isMobile ? 260 : 420;
 
             return (
               <motion.div
@@ -277,10 +288,11 @@ export const CoverCarousel = memo(function CoverCarousel({
                 animate={{
                   x: style.offsetX,
                   y: style.offsetY,
-                  scale: style.isCenter && isPressed ? 0.96 : style.scale,
+                  z: style.translateZ,
+                  scale: style.isCenter && isPressed ? 0.94 : style.scale,
                   opacity: style.opacity,
                 }}
-                transition={{ type: 'spring', stiffness: 60, damping: 20 }}
+                transition={{ type: 'spring', ...springConfig }}
                 onClick={() => !style.isCenter && handleTrackClick(index)}
                 onMouseDown={() => style.isCenter && setIsPressed(true)}
                 onMouseUp={() => setIsPressed(false)}
@@ -295,17 +307,15 @@ export const CoverCarousel = memo(function CoverCarousel({
                     rotateX: style.isCenter && !isMobile ? rotateX : 0,
                   }}
                 >
-                  {/* Shadow layer - moves opposite to create depth */}
-                  <motion.div
+                  {/* Real box-shadow for depth */}
+                  <div
                     className="absolute inset-0 pointer-events-none"
                     style={{
-                      transform: 'translateZ(-80px)',
-                      background: 'transparent',
                       boxShadow: style.isCenter
-                        ? '0 40px 100px rgba(0,0,0,0.6), 0 20px 40px rgba(0,0,0,0.4)'
-                        : index < currentIndex
-                          ? '20px 20px 60px rgba(0,0,0,0.5)'
-                          : '0 30px 80px rgba(0,0,0,0.4)',
+                        ? '0 50px 100px -20px rgba(0,0,0,0.5), 0 30px 60px -20px rgba(0,0,0,0.4)'
+                        : style.diff < 0
+                          ? '15px 15px 50px rgba(0,0,0,0.35)'
+                          : '0 40px 80px -10px rgba(0,0,0,0.4)',
                     }}
                   />
 
@@ -318,19 +328,20 @@ export const CoverCarousel = memo(function CoverCarousel({
                     style={{ aspectRatio: '1/1' }}
                   />
 
-                  {/* Border frame */}
-                  <div 
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                      border: style.isCenter ? '1px solid rgba(255,255,255,0.15)' : 'none',
-                    }}
-                  />
-
-                  {/* Darken overlay for non-center */}
+                  {/* Darkening overlay for non-center covers */}
                   {!style.isCenter && (
                     <div 
-                      className="absolute inset-0 pointer-events-none"
-                      style={{ background: `rgba(0,0,0,${0.3 + Math.abs(index - currentIndex) * 0.1})` }}
+                      className="absolute inset-0 pointer-events-none bg-foreground"
+                      style={{ 
+                        opacity: 0.25 + Math.abs(style.diff) * 0.1,
+                      }}
+                    />
+                  )}
+
+                  {/* Border frame for center */}
+                  {style.isCenter && (
+                    <div 
+                      className="absolute inset-0 pointer-events-none border border-foreground/10"
                     />
                   )}
                 </motion.div>
@@ -342,9 +353,9 @@ export const CoverCarousel = memo(function CoverCarousel({
 
       {/* Bottom progress bar / slider */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 w-[280px] md:w-[400px]">
-        <div className="relative h-[2px] bg-background/20 rounded-full overflow-hidden">
+        <div className="relative h-[2px] bg-foreground/20 rounded-full overflow-hidden">
           <motion.div
-            className="h-full bg-background rounded-full"
+            className="h-full bg-foreground rounded-full"
             animate={{
               width: `${((currentIndex + 1) / tracks.length) * 100}%`,
             }}
@@ -365,7 +376,7 @@ export const CoverCarousel = memo(function CoverCarousel({
         />
 
         {/* Track count */}
-        <p className="text-center text-xs text-background/50 mt-4 font-medium">
+        <p className="text-center text-xs text-foreground/50 mt-4 font-medium">
           {currentIndex + 1} / {tracks.length}
         </p>
       </div>
