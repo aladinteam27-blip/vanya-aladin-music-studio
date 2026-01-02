@@ -19,10 +19,10 @@ export const MobileTextDrum = memo(function MobileTextDrum({
   onSelect,
   offset,
 }: MobileTextDrumProps) {
-  // Horizontal offset based on drag
-  const x = useTransform(offset, (v) => v * 0.4);
+  // Horizontal offset synchronized with cover drag
+  const x = useTransform(offset, (v) => v * 0.35);
 
-  // Show only nearby tracks for performance
+  // Show nearby tracks
   const visibleRange = 2;
   const visible = tracks
     .map((_, i) => i)
@@ -30,11 +30,11 @@ export const MobileTextDrum = memo(function MobileTextDrum({
 
   return (
     <div
-      className="absolute left-0 right-0 top-[18vh] z-[60] flex items-center justify-center pointer-events-none"
+      className="absolute left-0 right-0 top-[22vh] z-[60] flex items-center justify-center pointer-events-none overflow-hidden"
       aria-label="Track selector"
     >
       <motion.div
-        className="flex items-center gap-4 px-4"
+        className="flex items-center justify-center gap-6 px-4"
         style={{ x }}
       >
         {visible.map((index) => {
@@ -48,14 +48,14 @@ export const MobileTextDrum = memo(function MobileTextDrum({
               onClick={() => onSelect(index)}
               className={cn(
                 "pointer-events-auto select-none whitespace-nowrap",
-                "text-sm font-medium transition-colors",
+                "text-sm font-medium tracking-wide",
                 isActive
-                  ? "text-foreground border border-foreground/60 px-4 py-1.5"
-                  : "text-foreground/35 border border-transparent px-4 py-1.5",
+                  ? "text-foreground border border-foreground/50 px-4 py-1.5 rounded-sm"
+                  : "text-foreground/40 border-none px-2 py-1.5",
               )}
               animate={{
-                opacity: isActive ? 1 : 0.4,
-                scale: isActive ? 1 : 0.9,
+                opacity: isActive ? 1 : 0.45,
+                scale: isActive ? 1 : 0.88,
               }}
               transition={{ type: "spring", ...springConfig }}
             >
