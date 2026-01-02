@@ -213,22 +213,22 @@ export const CoverCarousel = memo(function CoverCarousel({
       const diff = index - currentIndex;
       const absPos = Math.abs(diff);
 
-      // Mobile: center cover ~88% width (huge, as per reference)
-      const mobileSize = Math.round(Math.min(viewportW * 0.88, 420));
+      // Mobile: center cover ~82% width, like Lady Gaga reference
+      const mobileSize = Math.round(Math.min(viewportW * 0.82, 380));
       const desktopSize = 420;
       const size = isMobile ? mobileSize : desktopSize;
 
-      // Mobile: HORIZONTAL layout (covers slide left/right)
+      // Mobile: HORIZONTAL layout - side covers barely visible at screen edges
       // Desktop: diagonal layout
       const offsetX = isMobile 
-        ? diff * (size * 0.92) // Horizontal spacing - side covers peek from edges
+        ? diff * (viewportW * 0.78) // Push side covers to screen edges
         : diff * 340;
       const offsetY = isMobile 
-        ? diff * 40 // Very slight vertical offset for depth
+        ? diff * 30 // Slight vertical offset for depth (as in reference)
         : diff * 320;
 
-      const zStep = isMobile ? 200 : 340;
-      const centerZ = isMobile ? 100 : 120;
+      const zStep = isMobile ? 150 : 340;
+      const centerZ = isMobile ? 50 : 120;
 
       return {
         size,
@@ -238,17 +238,17 @@ export const CoverCarousel = memo(function CoverCarousel({
 
         // Hierarchy
         zIndex: 80 - absPos * 10,
-        opacity: diff === 0 ? 1 : Math.max(0.3, 0.7 - absPos * 0.2),
-        scale: diff === 0 ? 1 : Math.max(0.7, 0.88 - absPos * 0.1),
+        opacity: diff === 0 ? 1 : isMobile ? 0.7 : Math.max(0.3, 0.7 - absPos * 0.2),
+        scale: diff === 0 ? 1 : isMobile ? 0.85 : Math.max(0.7, 0.88 - absPos * 0.1),
 
         // Spatial composition
         offsetX,
         offsetY,
         translateZ: diff === 0 ? centerZ : -absPos * zStep,
 
-        // Base 3D orientation for side covers (subtle on mobile)
+        // Base 3D orientation for side covers
         baseRotateY: isMobile 
-          ? (diff === 0 ? 0 : diff * -8) 
+          ? (diff === 0 ? 0 : diff * -5) 
           : (diff === 0 ? 0 : diff * -16),
         baseRotateX: isMobile 
           ? 0 
