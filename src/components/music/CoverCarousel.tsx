@@ -60,7 +60,8 @@ export const CoverCarousel = memo(function CoverCarousel({
   const textDrumOffset = useMotionValue(0);
   const swipeRef = useRef<SwipeState | null>(null);
 
-  const mobileSceneY = useTransform(dragOffset, (y) => y * 0.35);
+  // Mobile: scene moves horizontally with drag
+  const mobileSceneX = useTransform(dragOffset, (x) => x * 0.5);
 
   useEffect(() => {
     const onResize = () => setViewportW(window.innerWidth);
@@ -115,13 +116,13 @@ export const CoverCarousel = memo(function CoverCarousel({
     [tracks, onIndexChange, onTrackChange],
   );
 
-  // Mobile: custom swipe without blocking page scroll
+  // Mobile: custom HORIZONTAL swipe without blocking page scroll
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (!isMobile) return;
       swipeRef.current = {
-        startY: e.clientY,
-        lastY: e.clientY,
+        startY: e.clientX, // Using X for horizontal swipe
+        lastY: e.clientX,
         startT: performance.now(),
         lastT: performance.now(),
       };
@@ -137,12 +138,12 @@ export const CoverCarousel = memo(function CoverCarousel({
       if (!s) return;
 
       const now = performance.now();
-      s.lastY = e.clientY;
+      s.lastY = e.clientX; // X axis
       s.lastT = now;
 
-      const dy = e.clientY - s.startY;
-      dragOffset.set(dy);
-      textDrumOffset.set(dy);
+      const dx = e.clientX - s.startY; // Horizontal delta
+      dragOffset.set(dx);
+      textDrumOffset.set(dx);
     },
     [isMobile, dragOffset, textDrumOffset],
   );
@@ -155,20 +156,22 @@ export const CoverCarousel = memo(function CoverCarousel({
     swipeRef.current = null;
     setIsDragging(false);
 
-    const dy = dragOffset.get();
+    const dx = dragOffset.get(); // Horizontal
     const dt = Math.max(1, s.lastT - s.startT);
-    const vy = ((s.lastY - s.startY) / dt) * 1000;
+    const vx = ((s.lastY - s.startY) / dt) * 1000; // Velocity X
 
-    const threshold = 64;
-    const velocityThreshold = 520;
+    const threshold = 50;
+    const velocityThreshold = 400;
 
     let newIndex = currentIndex;
 
-    if (Math.abs(dy) > threshold || Math.abs(vy) > velocityThreshold) {
-      if (dy > 0 || vy > velocityThreshold) {
-        newIndex = Math.max(0, currentIndex - 1);
-      } else {
+    if (Math.abs(dx) > threshold || Math.abs(vx) > velocityThreshold) {
+      // Swipe LEFT (negative dx) = next track
+      // Swipe RIGHT (positive dx) = previous track
+      if (dx < -threshold || vx < -velocityThreshold) {
         newIndex = Math.min(tracks.length - 1, currentIndex + 1);
+      } else if (dx > threshold || vx > velocityThreshold) {
+        newIndex = Math.max(0, currentIndex - 1);
       }
     }
 
@@ -210,15 +213,22 @@ export const CoverCarousel = memo(function CoverCarousel({
       const diff = index - currentIndex;
       const absPos = Math.abs(diff);
 
-      // Mobile: center cover ~90% width (as per reference)
-      const mobileSize = Math.round(Math.min(viewportW * 0.9, 440));
+      // Mobile: center cover ~88% width (huge, as per reference)
+      const mobileSize = Math.round(Math.min(viewportW * 0.88, 420));
       const desktopSize = 420;
       const size = isMobile ? mobileSize : desktopSize;
 
-      const diagonalX = isMobile ? Math.round(size * 0.55) : 340;
-      const diagonalY = isMobile ? Math.round(size * 0.65) : 320;
-      const zStep = isMobile ? 260 : 340;
-      const centerZ = isMobile ? 180 : 120;
+      // Mobile: HORIZONTAL layout (covers slide left/right)
+      // Desktop: diagonal layout
+      const offsetX = isMobile 
+        ? diff * (size * 0.92) // Horizontal spacing - side covers peek from edges
+        : diff * 340;
+      const offsetY = isMobile 
+        ? diff * 40 // Very slight vertical offset for depth
+        : diff * 320;
+
+      const zStep = isMobile ? 200 : 340;
+      const centerZ = isMobile ? 100 : 120;
 
       return {
         size,
@@ -228,17 +238,21 @@ export const CoverCarousel = memo(function CoverCarousel({
 
         // Hierarchy
         zIndex: 80 - absPos * 10,
-        opacity: diff === 0 ? 1 : Math.max(0.18, 0.55 - absPos * 0.18),
-        scale: diff === 0 ? 1 : Math.max(0.58, 0.82 - absPos * 0.14),
+        opacity: diff === 0 ? 1 : Math.max(0.3, 0.7 - absPos * 0.2),
+        scale: diff === 0 ? 1 : Math.max(0.7, 0.88 - absPos * 0.1),
 
-        // Spatial composition (clear diagonal + depth)
-        offsetX: diff * diagonalX,
-        offsetY: diff * diagonalY,
+        // Spatial composition
+        offsetX,
+        offsetY,
         translateZ: diff === 0 ? centerZ : -absPos * zStep,
 
-        // Base 3D orientation for side covers
-        baseRotateY: diff === 0 ? 0 : diff * -16,
-        baseRotateX: diff === 0 ? 0 : diff * 6,
+        // Base 3D orientation for side covers (subtle on mobile)
+        baseRotateY: isMobile 
+          ? (diff === 0 ? 0 : diff * -8) 
+          : (diff === 0 ? 0 : diff * -16),
+        baseRotateX: isMobile 
+          ? 0 
+          : (diff === 0 ? 0 : diff * 6),
       };
     },
     [currentIndex, isMobile, viewportW],
@@ -251,7 +265,7 @@ export const CoverCarousel = memo(function CoverCarousel({
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       // Important: keep page scroll working on mobile.
-      style={{ touchAction: "pan-y" }}
+      style={{ touchAction: "pan-y pan-x" }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -300,11 +314,11 @@ export const CoverCarousel = memo(function CoverCarousel({
         <motion.div
           className="relative"
           style={{
-            width: isMobile ? "120vw" : "200vw",
-            height: isMobile ? "120vh" : "150vh",
+            width: isMobile ? "140vw" : "200vw",
+            height: isMobile ? "100vh" : "150vh",
             transformStyle: "preserve-3d",
-            x: isMobile ? 0 : sceneX,
-            y: isMobile ? mobileSceneY : sceneY,
+            x: isMobile ? mobileSceneX : sceneX,
+            y: isMobile ? 0 : sceneY,
           }}
         >
           <AnimatePresence mode="sync">
@@ -326,7 +340,7 @@ export const CoverCarousel = memo(function CoverCarousel({
                     width: style.size,
                     height: style.size,
                     left: "50%",
-                    top: isMobile ? "58%" : "50%",
+                    top: isMobile ? "50%" : "50%",
                     marginLeft: -style.size / 2,
                     marginTop: -style.size / 2,
                     zIndex: style.zIndex,
