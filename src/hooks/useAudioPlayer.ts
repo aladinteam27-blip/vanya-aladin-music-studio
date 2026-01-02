@@ -1,12 +1,15 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Track } from '@/data/tracks';
 
+const FADE_DURATION = 300; // ms for crossfade
+
 export function useAudioPlayer() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [progress, setProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const animationRef = useRef<number>();
+  const fadeIntervalRef = useRef<number>();
 
   const updateProgress = useCallback(() => {
     if (audioRef.current) {
@@ -23,45 +26,112 @@ export function useAudioPlayer() {
     }
   }, []);
 
-  const play = useCallback((track: Track) => {
-    // Stop current playback
-    if (audioRef.current) {
-      audioRef.current.pause();
-      cancelAnimationFrame(animationRef.current!);
+  // Smooth fade out current audio
+  const fadeOut = useCallback((audio: HTMLAudioElement, onComplete?: () => void) => {
+    const startVolume = audio.volume;
+    const steps = 15;
+    const stepDuration = FADE_DURATION / steps;
+    let currentStep = 0;
+
+    if (fadeIntervalRef.current) {
+      clearInterval(fadeIntervalRef.current);
     }
 
-    // Create new audio element
-    audioRef.current = new Audio(track.audioPreviewUrl);
-    audioRef.current.volume = 0.7;
-    
-    audioRef.current.addEventListener('ended', () => {
-      setIsPlaying(false);
-      setProgress(0);
-    });
+    fadeIntervalRef.current = window.setInterval(() => {
+      currentStep++;
+      const newVolume = Math.max(0, startVolume * (1 - currentStep / steps));
+      audio.volume = newVolume;
 
-    audioRef.current.addEventListener('error', () => {
-      setIsPlaying(false);
-      setProgress(0);
-    });
+      if (currentStep >= steps) {
+        clearInterval(fadeIntervalRef.current);
+        audio.pause();
+        audio.volume = startVolume;
+        onComplete?.();
+      }
+    }, stepDuration);
+  }, []);
 
-    setCurrentTrack(track);
-    audioRef.current.play()
-      .then(() => {
-        setIsPlaying(true);
-        animationRef.current = requestAnimationFrame(updateProgress);
-      })
-      .catch(() => {
+  // Smooth fade in new audio
+  const fadeIn = useCallback((audio: HTMLAudioElement, targetVolume: number) => {
+    audio.volume = 0;
+    const steps = 15;
+    const stepDuration = FADE_DURATION / steps;
+    let currentStep = 0;
+
+    const interval = window.setInterval(() => {
+      currentStep++;
+      const newVolume = Math.min(targetVolume, targetVolume * (currentStep / steps));
+      audio.volume = newVolume;
+
+      if (currentStep >= steps) {
+        clearInterval(interval);
+      }
+    }, stepDuration);
+  }, []);
+
+  const play = useCallback((track: Track) => {
+    const targetVolume = 0.7;
+
+    // If same track, just resume
+    if (currentTrack?.id === track.id && audioRef.current) {
+      audioRef.current.play()
+        .then(() => {
+          setIsPlaying(true);
+          fadeIn(audioRef.current!, targetVolume);
+          animationRef.current = requestAnimationFrame(updateProgress);
+        })
+        .catch(() => setIsPlaying(false));
+      return;
+    }
+
+    // Crossfade: fade out old, then start new
+    const startNew = () => {
+      audioRef.current = new Audio(track.audioPreviewUrl);
+      audioRef.current.volume = 0;
+      
+      audioRef.current.addEventListener('ended', () => {
         setIsPlaying(false);
+        setProgress(0);
       });
-  }, [updateProgress]);
+
+      audioRef.current.addEventListener('error', () => {
+        setIsPlaying(false);
+        setProgress(0);
+      });
+
+      setCurrentTrack(track);
+      audioRef.current.play()
+        .then(() => {
+          setIsPlaying(true);
+          fadeIn(audioRef.current!, targetVolume);
+          animationRef.current = requestAnimationFrame(updateProgress);
+        })
+        .catch(() => setIsPlaying(false));
+    };
+
+    if (audioRef.current && isPlaying) {
+      // Crossfade
+      cancelAnimationFrame(animationRef.current!);
+      fadeOut(audioRef.current, startNew);
+    } else {
+      // No previous audio, just start
+      if (audioRef.current) {
+        audioRef.current.pause();
+        cancelAnimationFrame(animationRef.current!);
+      }
+      startNew();
+    }
+  }, [currentTrack, isPlaying, fadeIn, fadeOut, updateProgress]);
 
   const pause = useCallback(() => {
     if (audioRef.current) {
-      audioRef.current.pause();
-      cancelAnimationFrame(animationRef.current!);
+      // Smooth fade out on pause
+      fadeOut(audioRef.current, () => {
+        cancelAnimationFrame(animationRef.current!);
+      });
     }
     setIsPlaying(false);
-  }, []);
+  }, [fadeOut]);
 
   const stop = useCallback(() => {
     if (audioRef.current) {
@@ -88,6 +158,9 @@ export function useAudioPlayer() {
       }
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
+      }
+      if (fadeIntervalRef.current) {
+        clearInterval(fadeIntervalRef.current);
       }
     };
   }, []);

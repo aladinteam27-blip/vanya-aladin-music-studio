@@ -213,22 +213,23 @@ export const CoverCarousel = memo(function CoverCarousel({
       const diff = index - currentIndex;
       const absPos = Math.abs(diff);
 
-      // Mobile: center cover ~82% width, like Lady Gaga reference
-      const mobileSize = Math.round(Math.min(viewportW * 0.82, 380));
+      // Mobile: center cover ~78% width, like Lady Gaga reference
+      const mobileSize = Math.round(Math.min(viewportW * 0.78, 360));
       const desktopSize = 420;
       const size = isMobile ? mobileSize : desktopSize;
 
-      // Mobile: HORIZONTAL layout - side covers barely visible at screen edges
+      // Mobile: HORIZONTAL layout - side covers at screen edges
       // Desktop: diagonal layout
       const offsetX = isMobile 
-        ? diff * (viewportW * 0.78) // Push side covers to screen edges
+        ? diff * (viewportW * 0.72) // Push side covers to screen edges
         : diff * 340;
+      // Mobile: covers slightly above center (like reference)
       const offsetY = isMobile 
-        ? diff * 30 // Slight vertical offset for depth (as in reference)
+        ? diff * 25 // Small vertical offset for depth
         : diff * 320;
 
-      const zStep = isMobile ? 150 : 340;
-      const centerZ = isMobile ? 50 : 120;
+      const zStep = isMobile ? 120 : 340;
+      const centerZ = isMobile ? 30 : 120;
 
       return {
         size,
@@ -238,8 +239,8 @@ export const CoverCarousel = memo(function CoverCarousel({
 
         // Hierarchy
         zIndex: 80 - absPos * 10,
-        opacity: diff === 0 ? 1 : isMobile ? 0.7 : Math.max(0.3, 0.7 - absPos * 0.2),
-        scale: diff === 0 ? 1 : isMobile ? 0.85 : Math.max(0.7, 0.88 - absPos * 0.1),
+        opacity: diff === 0 ? 1 : isMobile ? 0.6 : Math.max(0.3, 0.7 - absPos * 0.2),
+        scale: diff === 0 ? 1 : isMobile ? 0.82 : Math.max(0.7, 0.88 - absPos * 0.1),
 
         // Spatial composition
         offsetX,
@@ -248,7 +249,7 @@ export const CoverCarousel = memo(function CoverCarousel({
 
         // Base 3D orientation for side covers
         baseRotateY: isMobile 
-          ? (diff === 0 ? 0 : diff * -5) 
+          ? (diff === 0 ? 0 : diff * -6) 
           : (diff === 0 ? 0 : diff * -16),
         baseRotateX: isMobile 
           ? 0 
@@ -306,19 +307,27 @@ export const CoverCarousel = memo(function CoverCarousel({
         />
       )}
 
-      {/* 3D Scene */}
+      {/* 3D Scene - Mobile: center slightly above middle like reference */}
       <div
-        className="absolute inset-0 flex items-center justify-center"
-        style={{ perspective: "1200px", perspectiveOrigin: "center center" }}
+        className={cn(
+          "absolute inset-0 flex items-center justify-center",
+          isMobile && "pt-0" // No extra padding
+        )}
+        style={{ 
+          perspective: "1200px", 
+          perspectiveOrigin: "center center",
+        }}
       >
         <motion.div
           className="relative"
           style={{
-            width: isMobile ? "140vw" : "200vw",
+            width: isMobile ? "130vw" : "200vw",
             height: isMobile ? "100vh" : "150vh",
             transformStyle: "preserve-3d",
             x: isMobile ? mobileSceneX : sceneX,
             y: isMobile ? 0 : sceneY,
+            // Mobile: shift scene up so covers are slightly above center
+            marginTop: isMobile ? "-8vh" : 0,
           }}
         >
           <AnimatePresence mode="sync">
