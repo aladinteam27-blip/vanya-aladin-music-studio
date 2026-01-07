@@ -1,10 +1,8 @@
-import { memo } from "react";
-import { motion, MotionValue, useTransform } from "framer-motion";
+import { memo, useEffect, useRef } from "react";
+import { motion, MotionValue, useTransform, animate } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 import type { Track } from "@/data/tracks";
-
-const springConfig = { stiffness: 100, damping: 30 };
 
 interface MobileTextDrumProps {
   tracks: Track[];
@@ -19,53 +17,84 @@ export const MobileTextDrum = memo(function MobileTextDrum({
   onSelect,
   offset,
 }: MobileTextDrumProps) {
-  // Horizontal offset synchronized with cover drag
-  const x = useTransform(offset, (v) => v * 0.35);
+  const navRef = useRef<HTMLElement>(null);
 
-  // Show only nearby tracks
-  const visibleRange = 2;
-  const visible = tracks
-    .map((_, i) => i)
-    .filter((i) => Math.abs(i - currentIndex) <= visibleRange);
+  // Auto-scroll to active item - canonical behavior
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+
+    nav.style.setProperty("scroll-snap-type", "none");
+
+    const activeItem = nav.querySelector(`.nav-item:nth-of-type(${currentIndex + 1})`);
+    if (!activeItem) return;
+
+    const rect = activeItem.getBoundingClientRect();
+    const targetScroll = rect.left + rect.width / 2 - window.innerWidth / 2 + nav.scrollLeft;
+
+    const animation = animate(nav.scrollLeft, targetScroll, {
+      duration: 0.5,
+      onUpdate: (v) => { nav.scrollLeft = v; },
+      onComplete: () => {
+        nav.style.setProperty("scroll-snap-type", "x mandatory");
+      },
+    });
+
+    return () => animation.stop();
+  }, [currentIndex]);
 
   return (
-    // Position: at ~28% from top, like Lady Gaga reference - title is ABOVE the cover
-    <div
-      className="absolute left-0 right-0 top-[28%] z-[60] flex items-center justify-center pointer-events-none overflow-hidden"
-      style={{ transform: "translateY(-100%)" }}
-      aria-label="Track selector"
+    <nav
+      ref={navRef}
+      className="absolute left-0 w-screen z-20 overflow-x-hidden hide-scrollbar"
+      style={{
+        // Position: canonical - at 1/4 from top of canvas, below title
+        top: "calc((90svh - min(calc(100vw - 80px), calc(90svh - 20vh))) / 4)",
+        transform: "translateY(100%)",
+        scrollSnapType: "x mandatory",
+        // Gradient mask on edges - canonical
+        maskImage: "linear-gradient(to right, transparent 0, transparent 40px, black 30%, black 60%, transparent calc(100% - 40px), transparent 100%)",
+        WebkitMaskImage: "linear-gradient(to right, transparent 0, transparent 40px, black 30%, black 60%, transparent calc(100% - 40px), transparent 100%)",
+      }}
     >
-      <motion.div
-        className="flex items-center justify-center gap-5 px-4"
-        style={{ x }}
+      <ul
+        className="inline-flex list-none gap-8"
+        style={{ padding: "0 calc(100vw - 50%)" }}
       >
-        {visible.map((index) => {
-          const diff = index - currentIndex;
-          const isActive = diff === 0;
+        {tracks.map((track, index) => {
+          const isActive = index === currentIndex;
 
           return (
-            <motion.button
-              key={tracks[index].id}
-              type="button"
-              onClick={() => onSelect(index)}
+            <motion.li
+              key={track.id}
               className={cn(
-                "pointer-events-auto select-none whitespace-nowrap",
-                "text-sm font-medium tracking-wide",
-                isActive
-                  ? "text-foreground border border-foreground/60 px-4 py-1.5 rounded-sm"
-                  : "text-foreground/35 px-3 py-1.5",
+                "nav-item scroll-snap-center whitespace-nowrap relative py-1",
+                "text-sm font-normal text-foreground",
+                "font-sans tracking-wide"
               )}
-              animate={{
-                opacity: isActive ? 1 : 0.4,
-                scale: isActive ? 1 : 0.85,
-              }}
-              transition={{ type: "spring", ...springConfig }}
+              style={{ scrollSnapAlign: "center" }}
+              initial={{ opacity: isActive ? 1 : 0.4 }}
+              animate={{ opacity: isActive ? 1 : 0.4 }}
+              transition={{ duration: 0.3 }}
+              onClick={() => onSelect(index)}
             >
-              {tracks[index].title}
-            </motion.button>
+              {track.title}
+              {/* Active border frame - canonical */}
+              {isActive && (
+                <span
+                  className="absolute inset-0 border border-current rounded"
+                  style={{
+                    top: 0,
+                    right: -8,
+                    bottom: 0,
+                    left: -8,
+                  }}
+                />
+              )}
+            </motion.li>
           );
         })}
-      </motion.div>
-    </div>
+      </ul>
+    </nav>
   );
 });
