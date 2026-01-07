@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef } from "react";
-import { motion, MotionValue, useTransform, animate } from "framer-motion";
+import { motion, MotionValue, animate } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 import type { Track } from "@/data/tracks";
@@ -11,22 +11,22 @@ interface MobileTextDrumProps {
   offset: MotionValue<number>;
 }
 
+// Canonical mobile nav - _mobileNav_gjbqq_202
 export const MobileTextDrum = memo(function MobileTextDrum({
   tracks,
   currentIndex,
   onSelect,
-  offset,
 }: MobileTextDrumProps) {
   const navRef = useRef<HTMLElement>(null);
 
-  // Auto-scroll to active item - canonical behavior
+  // Canonical auto-scroll to active item
   useEffect(() => {
     const nav = navRef.current;
     if (!nav) return;
 
     nav.style.setProperty("scroll-snap-type", "none");
 
-    const activeItem = nav.querySelector(`.nav-item:nth-of-type(${currentIndex + 1})`);
+    const activeItem = nav.querySelector(`.nav-item:nth-of-type(${currentIndex + 1})`) as HTMLElement;
     if (!activeItem) return;
 
     const rect = activeItem.getBoundingClientRect();
@@ -48,18 +48,23 @@ export const MobileTextDrum = memo(function MobileTextDrum({
       ref={navRef}
       className="absolute left-0 w-screen z-20 overflow-x-hidden hide-scrollbar"
       style={{
-        // Position: canonical - at 1/4 from top of canvas, below title
+        // Canonical position: top: calc((var(--config-canvas-height) - var(--config-slide-size)) / 4)
+        // Transform: translateY(100%) to position below the title area
         top: "calc((90svh - min(calc(100vw - 80px), calc(90svh - 20vh))) / 4)",
         transform: "translateY(100%)",
-        scrollSnapType: "x mandatory",
-        // Gradient mask on edges - canonical
-        maskImage: "linear-gradient(to right, transparent 0, transparent 40px, black 30%, black 60%, transparent calc(100% - 40px), transparent 100%)",
+        // Canonical mask - _mobileNav_gjbqq_202
         WebkitMaskImage: "linear-gradient(to right, transparent 0, transparent 40px, black 30%, black 60%, transparent calc(100% - 40px), transparent 100%)",
+        maskImage: "linear-gradient(to right, transparent 0, transparent 40px, black 30%, black 60%, transparent calc(100% - 40px), transparent 100%)",
+        scrollSnapType: "x mandatory",
       }}
     >
+      {/* Canonical nav list - _navList_gjbqq_219 */}
       <ul
-        className="inline-flex list-none gap-8"
-        style={{ padding: "0 calc(100vw - 50%)" }}
+        className="inline-flex list-none"
+        style={{
+          gap: 32, // Canonical gap: 32px
+          padding: "0 calc(100vw - 50%)", // Canonical padding
+        }}
       >
         {tracks.map((track, index) => {
           const isActive = index === currentIndex;
@@ -68,26 +73,33 @@ export const MobileTextDrum = memo(function MobileTextDrum({
             <motion.li
               key={track.id}
               className={cn(
-                "nav-item scroll-snap-center whitespace-nowrap relative py-1",
-                "text-sm font-normal text-foreground",
-                "font-sans tracking-wide"
+                "nav-item whitespace-nowrap relative",
+                // Canonical font: font-family: ABC ROM, Helvetica, Arial, sans-serif
+                // font-size: 14px, line-height: 1.2, font-weight: 400
+                "font-sans text-sm font-normal leading-tight",
+                "text-foreground"
               )}
-              style={{ scrollSnapAlign: "center" }}
+              style={{
+                scrollSnapAlign: "center",
+                padding: "4px 0", // Canonical padding: 4px 0
+              }}
               initial={{ opacity: isActive ? 1 : 0.4 }}
               animate={{ opacity: isActive ? 1 : 0.4 }}
               transition={{ duration: 0.3 }}
               onClick={() => onSelect(index)}
             >
               {track.title}
-              {/* Active border frame - canonical */}
+              
+              {/* Canonical active border - _navItemActive_gjbqq_232:before */}
               {isActive && (
                 <span
-                  className="absolute inset-0 border border-current rounded"
+                  className="absolute border border-current rounded"
                   style={{
                     top: 0,
                     right: -8,
                     bottom: 0,
                     left: -8,
+                    borderRadius: 4, // Canonical: border-radius: 4px
                   }}
                 />
               )}
