@@ -20,13 +20,38 @@ interface CoverCarouselProps {
   onTrackChange?: (track: Track) => void;
 }
 
-// Spring config - viscous, expensive like the reference
-const springConfig = { stiffness: 100, damping: 30 };
+// Canonical spring configs from Lady Gaga reference
+const springConfig = { stiffness: 400, mass: 0.1, damping: 20 };
+const hoverSpring = { stiffness: 100, mass: 0.1, damping: 20 };
 const snapSpring = { stiffness: 300, damping: 35 };
 
+// CSS variables from canonical source
+const CONFIG = {
+  // Desktop
+  desktop: {
+    slideGridSize: 4,
+    nextSlideColumnOffset: 4,
+    nextSlideRowOffset: 2,
+    slideGap: 48,
+    canvasHeight: "100vh",
+    // Slide size: max(30vw, calc(100vh - 30vh))
+    getSlideSize: (vw: number, vh: number) => Math.max(vw * 0.3, vh * 0.7),
+  },
+  // Mobile
+  mobile: {
+    slideGridSize: 4,
+    nextSlideColumnOffset: 3,
+    nextSlideRowOffset: 2,
+    slideGap: 28,
+    canvasHeight: "90svh",
+    // Slide size: min(100vw - 80px, 90svh - 20vh)
+    getSlideSize: (vw: number, vh: number) => Math.min(vw - 80, vh * 0.9 - vh * 0.2),
+  },
+};
+
 type SwipeState = {
-  startY: number;
-  lastY: number;
+  startX: number;
+  lastX: number;
   startT: number;
   lastT: number;
 };
@@ -38,33 +63,55 @@ export const CoverCarousel = memo(function CoverCarousel({
   onTrackChange,
 }: CoverCarouselProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const orchestratorRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
   const [isDragging, setIsDragging] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const [viewportW, setViewportW] = useState<number>(() =>
     typeof window !== "undefined" ? window.innerWidth : 375,
   );
+  const [viewportH, setViewportH] = useState<number>(() =>
+    typeof window !== "undefined" ? window.innerHeight : 667,
+  );
 
-  // Motion values for mouse tracking (Desktop)
-  const sceneX = useSpring(0, springConfig);
-  const sceneY = useSpring(0, springConfig);
+  const config = isMobile ? CONFIG.mobile : CONFIG.desktop;
+  const slideSize = config.getSlideSize(viewportW, viewportH);
+
+  // Motion values for scroll-based progress
+  const scrollProgress = useMotionValue(0);
+  const scrollVelocity = useMotionValue(0);
+  const smoothProgress = useSpring(scrollProgress, springConfig);
+  const smoothVelocity = useSpring(scrollVelocity, springConfig);
 
   // 3D rotation for center cover on hover (Desktop)
-  const rotateY = useSpring(0, springConfig);
-  const rotateX = useSpring(0, springConfig);
+  const hoverTiltX = useMotionValue(0);
+  const hoverTiltY = useMotionValue(0);
 
-  // Mobile gesture offsets (custom pointer logic; no framer drag -> page scroll stays available)
+  // Mobile gesture offsets
   const dragOffset = useMotionValue(0);
   const textDrumOffset = useMotionValue(0);
   const swipeRef = useRef<SwipeState | null>(null);
 
-  // Mobile: scene moves horizontally with drag
-  const mobileSceneX = useTransform(dragOffset, (x) => x * 0.5);
+  // Canvas transforms - canonical diagonal movement
+  const canvasY = useTransform(
+    smoothProgress,
+    [0, 1],
+    ["calc(0 * var(--config-canvas-height) - 0%)", "calc(1 * var(--config-canvas-height) - 100%)"]
+  );
+  const canvasX = useTransform(
+    smoothProgress,
+    [0, 1],
+    ["calc((-100% + 100vw) * 0)", "calc((-100% + 100vw) * 1)"]
+  );
 
   useEffect(() => {
-    const onResize = () => setViewportW(window.innerWidth);
+    const onResize = () => {
+      setViewportW(window.innerWidth);
+      setViewportH(window.innerHeight);
+    };
     window.addEventListener("resize", onResize);
     onResize();
 
@@ -75,38 +122,39 @@ export const CoverCarousel = memo(function CoverCarousel({
     };
   }, []);
 
-  // Desktop: Mouse move handler - scene follows cursor (camera-like)
+  // Update scroll progress based on currentIndex
+  useEffect(() => {
+    const progress = currentIndex / Math.max(1, tracks.length - 1);
+    animate(scrollProgress, progress, { duration: 0.3 * Math.abs(scrollProgress.get() - progress) + 0.2 });
+  }, [currentIndex, tracks.length, scrollProgress]);
+
+  // Desktop: Mouse move handler - hover tilt like canonical
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
       if (isMobile || isDragging) return;
 
-      const container = containerRef.current;
-      if (!container) return;
+      const target = e.currentTarget as HTMLElement;
+      const rect = target.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const normalizedX = x / rect.width - 0.5;
+      const normalizedY = y / rect.height - 0.5;
 
-      const rect = container.getBoundingClientRect();
-      const centerX = rect.width / 2;
-      const centerY = rect.height / 2;
-
-      const normalizedX = (e.clientX - rect.left - centerX) / centerX;
-      const normalizedY = (e.clientY - rect.top - centerY) / centerY;
-
-      // Expansive movement
-      sceneX.set(-normalizedX * 180);
-      sceneY.set(-normalizedY * 140);
-
-      // Subtle tilt on the active cover
-      rotateY.set(-normalizedX * 15);
-      rotateX.set(normalizedY * 10);
+      hoverTiltX.set(normalizedX);
+      hoverTiltY.set(normalizedY);
     },
-    [isMobile, isDragging, sceneX, sceneY, rotateY, rotateX],
+    [isMobile, isDragging, hoverTiltX, hoverTiltY],
   );
 
   const handleMouseLeave = useCallback(() => {
-    sceneX.set(0);
-    sceneY.set(0);
-    rotateY.set(0);
-    rotateX.set(0);
-  }, [sceneX, sceneY, rotateY, rotateX]);
+    hoverTiltX.set(0);
+    hoverTiltY.set(0);
+    setIsHovered(false);
+  }, [hoverTiltX, hoverTiltY]);
+
+  const handleMouseEnter = useCallback(() => {
+    setIsHovered(true);
+  }, []);
 
   const handleTrackClick = useCallback(
     (index: number) => {
@@ -116,13 +164,13 @@ export const CoverCarousel = memo(function CoverCarousel({
     [tracks, onIndexChange, onTrackChange],
   );
 
-  // Mobile: custom HORIZONTAL swipe without blocking page scroll
+  // Mobile: custom HORIZONTAL swipe
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (!isMobile) return;
       swipeRef.current = {
-        startY: e.clientX, // Using X for horizontal swipe
-        lastY: e.clientX,
+        startX: e.clientX,
+        lastX: e.clientX,
         startT: performance.now(),
         lastT: performance.now(),
       };
@@ -138,10 +186,10 @@ export const CoverCarousel = memo(function CoverCarousel({
       if (!s) return;
 
       const now = performance.now();
-      s.lastY = e.clientX; // X axis
+      s.lastX = e.clientX;
       s.lastT = now;
 
-      const dx = e.clientX - s.startY; // Horizontal delta
+      const dx = e.clientX - s.startX;
       dragOffset.set(dx);
       textDrumOffset.set(dx);
     },
@@ -156,9 +204,9 @@ export const CoverCarousel = memo(function CoverCarousel({
     swipeRef.current = null;
     setIsDragging(false);
 
-    const dx = dragOffset.get(); // Horizontal
+    const dx = dragOffset.get();
     const dt = Math.max(1, s.lastT - s.startT);
-    const vx = ((s.lastY - s.startY) / dt) * 1000; // Velocity X
+    const vx = ((s.lastX - s.startX) / dt) * 1000;
 
     const threshold = 50;
     const velocityThreshold = 400;
@@ -166,8 +214,6 @@ export const CoverCarousel = memo(function CoverCarousel({
     let newIndex = currentIndex;
 
     if (Math.abs(dx) > threshold || Math.abs(vx) > velocityThreshold) {
-      // Swipe LEFT (negative dx) = next track
-      // Swipe RIGHT (positive dx) = previous track
       if (dx < -threshold || vx < -velocityThreshold) {
         newIndex = Math.min(tracks.length - 1, currentIndex + 1);
       } else if (dx > threshold || vx > velocityThreshold) {
@@ -184,12 +230,9 @@ export const CoverCarousel = memo(function CoverCarousel({
     }
   }, [isMobile, currentIndex, tracks, dragOffset, textDrumOffset, onIndexChange, onTrackChange]);
 
-  const handlePointerUp = useCallback(
-    (_e: React.PointerEvent) => {
-      finishSwipe();
-    },
-    [finishSwipe],
-  );
+  const handlePointerUp = useCallback(() => {
+    finishSwipe();
+  }, [finishSwipe]);
 
   const handlePointerCancel = useCallback(() => {
     finishSwipe();
@@ -208,96 +251,150 @@ export const CoverCarousel = memo(function CoverCarousel({
     [tracks, currentIndex, onIndexChange, onTrackChange],
   );
 
-  const getCoverStyle = useCallback(
-    (index: number) => {
-      const diff = index - currentIndex;
+  // Slider drag handlers for smooth snap behavior
+  const handleSliderDragStart = useCallback(() => {
+    setIsDragging(true);
+  }, []);
+
+  const handleSliderDragEnd = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // Calculate transform for each cover - canonical diagonal stack
+  const getCoverTransform = useCallback(
+    (slideIndex: number) => {
+      const diff = slideIndex - currentIndex;
       const absPos = Math.abs(diff);
+      const isCenter = diff === 0;
+      const isPrev = diff < 0;
+      const isNext = diff > 0;
 
-      // Mobile: center cover ~78% width, like Lady Gaga reference
-      const mobileSize = Math.round(Math.min(viewportW * 0.78, 360));
-      const desktopSize = 420;
-      const size = isMobile ? mobileSize : desktopSize;
+      // Velocity-based transforms from canonical source
+      const velocityRange = isMobile ? 80 : 1000;
 
-      // Mobile: HORIZONTAL layout - side covers at screen edges
-      // Desktop: diagonal layout
-      const offsetX = isMobile 
-        ? diff * (viewportW * 0.72) // Push side covers to screen edges
-        : diff * 340;
-      // Mobile: covers slightly above center (like reference)
-      const offsetY = isMobile 
-        ? diff * 25 // Small vertical offset for depth
-        : diff * 320;
+      // rotateY: velocity-based or hover-based for center
+      const baseRotateY = isCenter ? 0 : diff * (isMobile ? -5 : -35);
 
-      const zStep = isMobile ? 120 : 340;
-      const centerZ = isMobile ? 30 : 120;
+      // Opacity: darken non-active slides
+      const insetOpacity = isCenter ? 0 : isPrev ? (isMobile ? 0.5 : 0.8) : 0.5;
+
+      // Scale: slight scale on velocity
+      const scale = isCenter ? 1 : 1.1;
+
+      // Drop shadow X offset
+      const shadowX = isCenter ? 0 : isNext ? -40 : 30;
+
+      // Canvas X offset for depth
+      const depthOffset = isMobile
+        ? (isNext ? -80 : 0)
+        : (diff * (500 / (tracks.length / 2)));
 
       return {
-        size,
+        slideIndex,
         diff,
         absPos,
-        isCenter: diff === 0,
-
-        // Hierarchy
-        zIndex: 80 - absPos * 10,
-        opacity: diff === 0 ? 1 : isMobile ? 0.6 : Math.max(0.3, 0.7 - absPos * 0.2),
-        scale: diff === 0 ? 1 : isMobile ? 0.82 : Math.max(0.7, 0.88 - absPos * 0.1),
-
-        // Spatial composition
-        offsetX,
-        offsetY,
-        translateZ: diff === 0 ? centerZ : -absPos * zStep,
-
-        // Base 3D orientation for side covers
-        baseRotateY: isMobile 
-          ? (diff === 0 ? 0 : diff * -6) 
-          : (diff === 0 ? 0 : diff * -16),
-        baseRotateX: isMobile 
-          ? 0 
-          : (diff === 0 ? 0 : diff * 6),
+        isCenter,
+        isPrev,
+        isNext,
+        baseRotateY,
+        insetOpacity,
+        scale,
+        shadowX,
+        depthOffset,
+        zIndex: tracks.length - slideIndex,
       };
     },
-    [currentIndex, isMobile, viewportW],
+    [currentIndex, isMobile, tracks.length],
   );
+
+  // Calculate grid position for each slide
+  const getGridPosition = (slideIndex: number) => {
+    const gridRow = slideIndex * config.nextSlideRowOffset + 1;
+    const gridColumn = slideIndex * config.nextSlideColumnOffset + 1;
+    return {
+      gridRow: `${gridRow} / span ${config.slideGridSize}`,
+      gridColumn: `${gridColumn} / span ${config.slideGridSize}`,
+    };
+  };
+
+  // CSS variables for the canvas grid
+  const cssVars = {
+    "--dynamic-number-of-slides": tracks.length,
+    "--dynamic-active-slide-index": currentIndex,
+    "--config-slide-grid-size": config.slideGridSize,
+    "--config-next-slide-colum-offset": config.nextSlideColumnOffset,
+    "--config-next-slide-row-offset": config.nextSlideRowOffset,
+    "--config-slide-gap": `${config.slideGap}px`,
+    "--config-slide-size": `${slideSize}px`,
+    "--config-canvas-height": config.canvasHeight,
+  } as React.CSSProperties;
+
+  // Grid template calculations
+  const gridCols = tracks.length * config.slideGridSize - (tracks.length - 1) * (config.nextSlideColumnOffset - config.slideGridSize) * -1;
+  const gridRows = tracks.length * config.slideGridSize - (tracks.length - 1) * (config.nextSlideRowOffset - config.slideGridSize) * -1;
+  const cellSize = (slideSize - config.slideGap * (config.slideGridSize - 1)) / config.slideGridSize;
+  const nonActiveSpaceW = (viewportW - slideSize) / 2;
+  const nonActiveSpaceH = (viewportH * (isMobile ? 0.9 : 1) - slideSize) / 2;
 
   return (
     <section
       ref={containerRef}
-      className="relative w-screen h-screen overflow-hidden bg-background"
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      // Important: keep page scroll working on mobile.
-      style={{ touchAction: "pan-y pan-x" }}
+      className="relative w-screen overflow-hidden bg-background"
+      style={{
+        ...cssVars,
+        height: config.canvasHeight,
+        touchAction: "pan-y pan-x",
+      }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
     >
-      {/* Desktop: Track names sidebar */}
+      {/* Left gradient mask - canonical */}
+      <div
+        className="absolute top-0 left-0 h-full z-10 pointer-events-none"
+        style={{
+          width: nonActiveSpaceW,
+          background: isMobile
+            ? "linear-gradient(to right, hsl(var(--background)), hsl(var(--background) / 0.3) 40%, transparent)"
+            : "linear-gradient(to right, hsl(var(--background)), hsl(var(--background)) 20%, hsl(var(--background) / 0.5) 80%, transparent)",
+        }}
+      />
+
+      {/* Desktop: Track names sidebar - canonical position */}
       {!isMobile && (
-        <nav className="absolute left-8 lg:left-16 top-1/2 -translate-y-1/2 z-[60] flex flex-col gap-0.5">
-          {tracks.map((track, index) => {
-            const isActive = index === currentIndex;
-            return (
-              <motion.button
-                key={track.id}
-                onClick={() => handleTrackClick(index)}
-                className={cn(
-                  "text-left px-4 py-2 text-sm font-medium transition-colors duration-300",
-                  isActive
-                    ? "text-foreground border border-foreground/40"
-                    : "text-foreground/30 hover:text-foreground/60 border border-transparent",
-                )}
-                animate={{ opacity: isActive ? 1 : 0.5 }}
-                transition={{ duration: 0.3 }}
-              >
-                {track.title}
-              </motion.button>
-            );
-          })}
-        </nav>
+        <aside
+          className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 z-20"
+          style={{
+            maxWidth: nonActiveSpaceW,
+            padding: `20px 0 20px max(24px, calc((100vw - 1660px) / 2 + 24px))`,
+          }}
+        >
+          <nav className="flex flex-col gap-0.5">
+            {tracks.map((track, index) => {
+              const isActive = index === currentIndex;
+              return (
+                <motion.button
+                  key={track.id}
+                  onClick={() => handleTrackClick(index)}
+                  className={cn(
+                    "text-left px-4 py-2 text-sm font-medium transition-colors duration-300",
+                    isActive
+                      ? "text-foreground"
+                      : "text-foreground/30 hover:text-foreground/60",
+                  )}
+                  animate={{ opacity: isActive ? 1 : 0.4 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {track.title}
+                </motion.button>
+              );
+            })}
+          </nav>
+        </aside>
       )}
 
-      {/* Mobile: drum text (integrated UI; no overlapping button grid) */}
+      {/* Mobile: drum text - canonical position at top */}
       {isMobile && (
         <MobileTextDrum
           tracks={tracks}
@@ -307,148 +404,244 @@ export const CoverCarousel = memo(function CoverCarousel({
         />
       )}
 
-      {/* 3D Scene - Mobile: center slightly above middle like reference */}
-      <div
-        className={cn(
-          "absolute inset-0 flex items-center justify-center",
-          isMobile && "pt-0" // No extra padding
-        )}
-        style={{ 
-          perspective: "1200px", 
-          perspectiveOrigin: "center center",
-        }}
-      >
-        <motion.div
-          className="relative"
-          style={{
-            width: isMobile ? "130vw" : "200vw",
-            height: isMobile ? "100vh" : "150vh",
-            transformStyle: "preserve-3d",
-            x: isMobile ? mobileSceneX : sceneX,
-            y: isMobile ? 0 : sceneY,
-            // Mobile: shift scene up so covers are slightly above center
-            marginTop: isMobile ? "-8vh" : 0,
-          }}
+      {/* Canvas wrapper - stacked grids */}
+      <div className="grid" style={{ display: "grid" }}>
+        {/* Visible canvas - actual covers with 3D transforms */}
+        <div
+          className="overflow-hidden"
+          style={{ gridColumn: "1/1", gridRow: "1/1", width: "100%", height: config.canvasHeight }}
         >
-          <AnimatePresence mode="sync">
-            {tracks.map((track, index) => {
-              // Mobile: keep scene readable (no “pile”)
-              if (isMobile && Math.abs(index - currentIndex) > 3) return null;
+          <motion.ul
+            className="inline-grid list-none"
+            style={{
+              gridTemplateColumns: `repeat(${gridCols}, ${cellSize}px)`,
+              gridTemplateRows: `repeat(${gridRows}, ${cellSize}px)`,
+              gap: config.slideGap,
+              padding: `${nonActiveSpaceH}px ${nonActiveSpaceW}px`,
+              y: canvasY,
+              x: canvasX,
+              z: 0,
+            }}
+            onMouseMove={handleMouseMove}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
+            <AnimatePresence mode="sync">
+              {tracks.map((track, slideIndex) => {
+                const transform = getCoverTransform(slideIndex);
+                const gridPos = getGridPosition(slideIndex);
+                const entranceDelay = slideIndex * 0.06;
 
-              const style = getCoverStyle(index);
-              const entranceDelay = index * 0.06;
+                // Velocity-based rotateY for non-center slides
+                const rotateYValue = transform.isCenter
+                  ? useTransform(hoverTiltX, [-0.5, 0.5], [-8, 8])
+                  : transform.baseRotateY;
 
-              return (
-                <motion.div
-                  key={track.id}
-                  className={cn(
-                    "absolute",
-                    style.isCenter ? "cursor-default" : "cursor-pointer",
-                  )}
-                  style={{
-                    width: style.size,
-                    height: style.size,
-                    left: "50%",
-                    top: isMobile ? "50%" : "50%",
-                    marginLeft: -style.size / 2,
-                    marginTop: -style.size / 2,
-                    zIndex: style.zIndex,
-                    transformStyle: "preserve-3d",
-                  }}
-                  initial={isLoaded ? false : {
-                    opacity: 0,
-                    scale: 0.5,
-                    z: -600,
-                    x: style.offsetX,
-                    y: style.offsetY,
-                  }}
-                  animate={{
-                    x: style.offsetX,
-                    y: style.offsetY,
-                    z: style.translateZ,
-                    scale: style.isCenter && isPressed ? 0.92 : style.scale,
-                    opacity: style.opacity,
-                  }}
-                  transition={{
-                    type: "spring",
-                    ...springConfig,
-                    delay: isLoaded ? 0 : entranceDelay,
-                  }}
-                  onClick={() => !style.isCenter && handleTrackClick(index)}
-                  onMouseDown={() => style.isCenter && setIsPressed(true)}
-                  onMouseUp={() => setIsPressed(false)}
-                  onMouseLeave={() => setIsPressed(false)}
-                >
-                  <motion.div
-                    className="w-full h-full relative"
+                // Velocity-based rotateX for center
+                const rotateXValue = transform.isCenter
+                  ? useTransform(hoverTiltY, [-0.5, 0.5], [8, -8])
+                  : 0;
+
+                return (
+                  <motion.li
+                    key={track.id}
+                    className="relative"
                     style={{
-                      transformStyle: "preserve-3d",
-                      rotateY:
-                        style.isCenter && !isMobile ? rotateY : style.baseRotateY,
-                      rotateX:
-                        style.isCenter && !isMobile ? rotateX : style.baseRotateX,
+                      ...gridPos,
+                      zIndex: transform.zIndex,
+                      "--dynamic-slide-index": slideIndex,
+                      "--dynamic-color": "hsl(var(--foreground) / 0.5)",
+                    } as React.CSSProperties}
+                    initial={isLoaded ? false : { opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{
+                      type: "spring",
+                      ...hoverSpring,
+                      delay: isLoaded ? 0 : entranceDelay,
                     }}
                   >
-                    <div
-                      className="absolute inset-0 pointer-events-none"
+                    <motion.div
                       style={{
-                        boxShadow: style.isCenter
-                          ? "0 60px 120px -30px hsl(var(--foreground) / 0.30), 0 40px 80px -30px hsl(var(--foreground) / 0.22)"
-                          : style.diff < 0
-                            ? "18px 22px 60px hsl(var(--foreground) / 0.18), 10px 10px 30px hsl(var(--foreground) / 0.14)"
-                            : "-10px 50px 100px hsl(var(--foreground) / 0.20)",
+                        x: transform.depthOffset,
+                        perspective: "100vw",
                       }}
-                    />
+                    >
+                      <motion.div
+                        className="relative"
+                        style={{
+                          transformStyle: "preserve-3d",
+                          rotateY: transform.isCenter ? rotateYValue : transform.baseRotateY,
+                          rotateX: transform.isCenter ? rotateXValue : 0,
+                        }}
+                        animate={{
+                          scale: transform.isCenter && isPressed ? 0.95 : 1,
+                        }}
+                        transition={{ type: "spring", ...hoverSpring }}
+                        onMouseDown={() => transform.isCenter && setIsPressed(true)}
+                        onMouseUp={() => setIsPressed(false)}
+                        onMouseLeave={() => setIsPressed(false)}
+                        onClick={() => !transform.isCenter && handleTrackClick(slideIndex)}
+                      >
+                        {/* Cover image */}
+                        <div
+                          className={cn(
+                            "overflow-hidden rounded flex-shrink-0",
+                            transform.isCenter ? "cursor-default" : "cursor-pointer",
+                          )}
+                        >
+                          <img
+                            src={track.coverUrl}
+                            alt={`${track.title} - ${track.format} ${track.year}`}
+                            className="w-full h-full object-cover"
+                            draggable={false}
+                            style={{ aspectRatio: "1/1" }}
+                          />
+                        </div>
 
-                    <img
-                      src={track.coverUrl}
-                      alt={`${track.title} - ${track.format} ${track.year}`}
-                      className="w-full h-full object-cover"
-                      draggable={false}
-                      style={{ aspectRatio: "1/1" }}
-                    />
+                        {/* 3D edge border - canonical */}
+                        <div
+                          className="absolute top-0 right-[-4px] w-[4px] h-full"
+                          style={{
+                            transform: "rotateY(90deg)",
+                            transformOrigin: "left",
+                            background: "var(--dynamic-color)",
+                          }}
+                        />
 
-                    {!style.isCenter && (
-                      <div
-                        className="absolute inset-0 pointer-events-none bg-foreground/30"
-                        style={{ opacity: 0.25 + style.absPos * 0.18 }}
-                      />
-                    )}
+                        {/* Drop shadow - canonical */}
+                        {!transform.isCenter && (
+                          <motion.div
+                            className="absolute top-0 left-0 w-full h-full -z-10 pointer-events-none"
+                            style={{
+                              scale: 1.2,
+                              background: "rgba(0, 0, 0, 0.5)",
+                              filter: "blur(12px)",
+                              x: transform.shadowX,
+                              z: -150,
+                            }}
+                          />
+                        )}
 
-                    {style.isCenter && (
-                      <div className="absolute inset-0 pointer-events-none border border-foreground/10" />
-                    )}
-                  </motion.div>
-                </motion.div>
+                        {/* Inset shadow overlay for non-active - canonical */}
+                        {!transform.isCenter && (
+                          <motion.div
+                            className="absolute top-0 right-0 w-full h-full z-10 pointer-events-none"
+                            style={{
+                              background: `radial-gradient(farthest-corner at 75% 75%, rgba(0,0,0,1) 0%, rgba(0,0,0,0.8) 10%, rgba(0,0,0,0.2) 100%),
+                                          linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 30%, rgba(0,0,0,0.5) 60%, transparent 80%)`,
+                            }}
+                            initial={{ opacity: 1 }}
+                            animate={{ opacity: transform.insetOpacity }}
+                            transition={{ type: "spring", ...hoverSpring }}
+                          />
+                        )}
+                      </motion.div>
+                    </motion.div>
+                  </motion.li>
+                );
+              })}
+            </AnimatePresence>
+          </motion.ul>
+        </div>
+
+        {/* Orchestrator canvas - invisible scroll snap container */}
+        <div
+          ref={orchestratorRef}
+          className="z-10 overflow-y-hidden overflow-x-scroll hide-scrollbar"
+          style={{
+            gridColumn: "1/1",
+            gridRow: "1/1",
+            width: "100%",
+            height: config.canvasHeight,
+            scrollSnapType: "x mandatory",
+            overscrollBehaviorX: "contain",
+          }}
+        >
+          <motion.div
+            className="inline-grid"
+            style={{
+              gridTemplateColumns: `repeat(${gridCols}, ${cellSize}px)`,
+              gridTemplateRows: `repeat(${gridRows}, ${cellSize}px)`,
+              gap: config.slideGap,
+              padding: `${nonActiveSpaceH}px ${nonActiveSpaceW}px`,
+              y: canvasY,
+            }}
+          >
+            {tracks.map((track, slideIndex) => {
+              const isActive = slideIndex === currentIndex;
+              const gridPos = getGridPosition(slideIndex);
+
+              return (
+                <a
+                  key={track.id}
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleTrackClick(slideIndex);
+                  }}
+                  className={cn(
+                    "scroll-snap-center",
+                    isActive ? "" : "pointer-events-none",
+                  )}
+                  style={{
+                    ...gridPos,
+                    scrollSnapAlign: "center",
+                    "--dynamic-slide-index": slideIndex,
+                  } as React.CSSProperties}
+                  aria-label={track.title}
+                />
               );
             })}
-          </AnimatePresence>
-        </motion.div>
+          </motion.div>
+        </div>
       </div>
 
-      {/* Bottom progress indicator */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[60] w-[260px] md:w-[360px]">
-        <div className="relative h-[2px] bg-foreground/15 rounded-full overflow-hidden">
+      {/* Bottom progress indicator - canonical */}
+      <div
+        className="absolute z-10 overflow-hidden left-1/2 -translate-x-1/2"
+        style={{
+          bottom: `calc((${config.canvasHeight} - ${slideSize}px) / 4)`,
+          width: isMobile ? "calc(100vw - 32px)" : slideSize,
+        }}
+      >
+        <div className="relative w-full h-8">
+          <div
+            className="absolute top-1/2 -translate-y-1/2 h-[1px] left-0 w-full"
+            style={{ background: "hsl(var(--foreground) / 0.3)" }}
+          />
           <motion.div
-            className="h-full bg-foreground rounded-full"
-            animate={{ width: `${((currentIndex + 1) / tracks.length) * 100}%` }}
-            transition={{ type: "spring", ...snapSpring }}
+            className="absolute top-1/2 -translate-y-1/2 h-2 rounded-full cursor-grab active:cursor-grabbing"
+            style={{
+              background: "hsl(var(--foreground))",
+              width: `calc(100% / ${tracks.length})`,
+              left: `calc(${currentIndex} * 100% / ${tracks.length})`,
+              transformOrigin: "center",
+            }}
+            initial={{ scaleY: 0.125 }}
+            animate={{ 
+              scaleY: isHovered ? 0.5 : isDragging ? 1 : 0.125,
+            }}
+            whileHover={{ scaleY: 1 }}
+            whileDrag={{ cursor: "grabbing" }}
+            transition={{ type: "spring", ...springConfig }}
+          />
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.001"
+            value={currentIndex / Math.max(1, tracks.length - 1)}
+            onChange={handleSliderChange}
+            onMouseDown={handleSliderDragStart}
+            onMouseUp={handleSliderDragEnd}
+            onTouchStart={handleSliderDragStart}
+            onTouchEnd={handleSliderDragEnd}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            style={{ touchAction: "pan-y" }}
           />
         </div>
 
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.001"
-          value={currentIndex / Math.max(1, tracks.length - 1)}
-          onChange={handleSliderChange}
-          className="absolute inset-0 w-full h-10 -mt-4 opacity-0 cursor-pointer"
-          // Don’t block page scroll; slider only needs taps.
-          style={{ touchAction: "pan-y" }}
-        />
-
-        <p className="text-center text-xs text-foreground/40 mt-4 font-medium tracking-wide">
+        <p className="text-center text-xs text-foreground/40 mt-2 font-medium tracking-wide">
           {currentIndex + 1} / {tracks.length}
         </p>
       </div>
