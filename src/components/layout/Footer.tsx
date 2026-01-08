@@ -1,13 +1,28 @@
 import { memo } from "react";
 import { socialLinks, contactInfo } from "@/data/siteData";
 
-export const Footer = memo(function Footer() {
+interface FooterProps {
+  onOpenCookieSettings?: () => void;
+}
+
+export const Footer = memo(function Footer({ onOpenCookieSettings }: FooterProps) {
+  const currentYear = new Date().getFullYear();
+
+  const handleCookieSettings = () => {
+    if (onOpenCookieSettings) {
+      onOpenCookieSettings();
+    } else {
+      // Trigger cookie banner by dispatching custom event
+      window.dispatchEvent(new CustomEvent("openCookieSettings"));
+    }
+  };
+
   return (
     <footer className="relative bg-background border-t border-border" role="contentinfo">
       <div className="container mx-auto px-4 md:px-6 py-10 md:py-14">
         {/* Main footer content */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
-          
+
           {/* Navigation */}
           <div>
             <h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-4">Навигация</h3>
@@ -24,7 +39,9 @@ export const Footer = memo(function Footer() {
               </li>
               <li>
                 <a
-                  href="/terms"
+                  href="https://vanyaaladin.com/terms"
+                  target="_blank"
+                  rel="noopener"
                   className="text-sm text-foreground/70 hover:text-foreground transition-colors"
                 >
                   Условия использования
@@ -33,6 +50,7 @@ export const Footer = memo(function Footer() {
               <li>
                 <button
                   type="button"
+                  onClick={handleCookieSettings}
                   className="text-sm text-foreground/70 hover:text-foreground transition-colors"
                 >
                   Настройки Cookies
@@ -47,7 +65,7 @@ export const Footer = memo(function Footer() {
             <div className="space-y-2 text-sm">
               <p className="text-foreground/70">
                 Концерты и реклама:{" "}
-                <a 
+                <a
                   href={`tel:${contactInfo.booking.phone.replace(/\s/g, "")}`}
                   className="text-foreground hover:text-primary transition-colors"
                 >
@@ -57,7 +75,7 @@ export const Footer = memo(function Footer() {
               </p>
               <p className="text-foreground/70">
                 PR / Пресса:{" "}
-                <a 
+                <a
                   href={`mailto:${contactInfo.pr.email}`}
                   className="text-foreground hover:text-primary transition-colors"
                 >
@@ -99,7 +117,7 @@ export const Footer = memo(function Footer() {
         {/* Bottom bar */}
         <div className="mt-10 pt-6 border-t border-border flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            © 2025 Ваня Аладин. Все права защищены.
+            © {currentYear} Ваня Аладин. Все права защищены.
           </p>
           <p className="text-xs text-muted-foreground/60 max-w-md">
             Все материалы, размещенные на данном сайте, являются собственностью их авторов.

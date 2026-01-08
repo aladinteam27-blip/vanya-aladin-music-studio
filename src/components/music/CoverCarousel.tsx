@@ -718,32 +718,31 @@ const CanonicalSlide = memo(function CanonicalSlide({
           }}
         />
 
-        {/* Drop shadow - canonical _showcaseSlideInnerDropShadow_gjbqq_177 */}
+        {/* Drop shadow - LIGHT THEME: soft, diffuse shadows */}
         {!isCenter && (
           <motion.div
-            className="absolute top-0 left-0 w-full h-full -z-10 pointer-events-none"
+            className="absolute top-0 left-0 w-full h-full -z-10 pointer-events-none rounded"
             initial={{ x: 0, z: -150 }}
             style={{
-              scale: 1.2,
-              background: "rgba(0, 0, 0, 0.6)",
-              filter: "blur(12px)",
+              scale: 1.05,
+              background: "hsl(var(--foreground) / 0.08)",
+              filter: "blur(20px)",
               x: smoothShadowX,
               z: -150,
             }}
           />
         )}
 
-        {/* Inset shadow - canonical _showcaseSlideInnerInsetShadow_gjbqq_188 */}
+        {/* Inset shadow - LIGHT THEME: subtle depth gradient, NO black overlay */}
         {!isCenter && (
           <motion.div
-            className="absolute top-0 right-0 w-full h-full z-10 pointer-events-none"
+            className="absolute top-0 right-0 w-full h-full z-10 pointer-events-none rounded"
             style={{
-              background: `radial-gradient(farthest-corner at 75% 75%, rgb(0,0,0) 0%, rgba(0,0,0,0.8) 10%, rgba(0,0,0,0.2) 100%),
-                          linear-gradient(to top, rgb(0,0,0) 0%, rgb(0,0,0) 30%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0) 80%)`,
+              background: `linear-gradient(135deg, transparent 0%, transparent 60%, hsl(var(--foreground) / 0.05) 100%)`,
               backgroundRepeat: "no-repeat",
               opacity: smoothInsetOpacity,
             }}
-            initial={{ opacity: isCenter ? 0 : 1 }}
+            initial={{ opacity: isCenter ? 0 : 0.5 }}
           />
         )}
       </motion.div>

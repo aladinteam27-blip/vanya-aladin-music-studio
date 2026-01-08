@@ -1,72 +1,59 @@
-import { useState, useEffect, useRef } from "react";
-import { Search, X } from "lucide-react";
-import { navLinks, latestRelease, contactInfo, socialLinks } from "@/data/siteData";
-
-interface SearchResult {
-  title: string;
-  description: string;
-  url: string;
-  category: string;
-}
+import { useState, useEffect, useRef, useMemo } from "react";
+import { X } from "lucide-react";
 
 interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-// Searchable content from the site
-const searchableContent: SearchResult[] = [
-  { title: "Главная", description: "Главная страница сайта Ваня Аладин", url: "/", category: "Страницы" },
-  { title: "Музыка", description: "Все треки и альбомы Вани Аладина", url: "https://vanyaaladin.com/music", category: "Страницы" },
-  { title: "Биография", description: "История и биография артиста", url: "https://vanyaaladin.com/wiki/aladin-vanya", category: "Страницы" },
-  { title: "Даты концертов", description: "Расписание выступлений и концертов", url: "https://vanyaaladin.com/live", category: "Страницы" },
-  { title: "Контакты", description: "Связаться с командой артиста", url: "/contacts", category: "Страницы" },
-  { title: latestRelease.title, description: `${latestRelease.year} ${latestRelease.type} — новый релиз`, url: latestRelease.listenUrl, category: "Музыка" },
-  { title: "Пресейв", description: "Сохранить новый релиз заранее", url: latestRelease.presaveUrl, category: "Музыка" },
-  { title: `Букинг — ${contactInfo.booking.name}`, description: contactInfo.booking.phone, url: `tel:${contactInfo.booking.phone.replace(/\s/g, "")}`, category: "Контакты" },
-  { title: "Email", description: contactInfo.pr.email, url: `mailto:${contactInfo.pr.email}`, category: "Контакты" },
-  ...socialLinks.map(social => ({
-    title: social.name,
-    description: `Официальный ${social.name} Вани Аладина`,
-    url: social.url,
-    category: "Соцсети"
-  })),
+// Searchable items - music and pages
+const searchableItems = [
+  { title: "Девочка-весна", url: "https://vanyaaladin.com/music/devochka-vesna" },
+  { title: "Не улетай", url: "https://vanyaaladin.com/music/ne-uletay" },
+  { title: "ДАВАЙ ВАЛИ", url: "https://vanyaaladin.com/music/davay-vali" },
+  { title: "Опять влюблённый", url: "https://vanyaaladin.com/music/opyat-vlyublyonnyy" },
+  { title: "Плакала", url: "https://vanyaaladin.com/music/plakala" },
+  { title: "Главная", url: "https://vanyaaladin.com" },
+  { title: "Музыка", url: "https://vanyaaladin.com/music" },
+  { title: "Биография", url: "https://vanyaaladin.com/wiki/aladin-vanya" },
+  { title: "Даты концертов", url: "https://vanyaaladin.com/live" },
+  { title: "Контакты", url: "https://vanyaaladin.com/contacts" },
 ];
 
 export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Find inline suggestion based on current query
+  const inlineSuggestion = useMemo(() => {
+    if (!query.trim() || query.length < 2) return "";
+
+    const lowerQuery = query.toLowerCase();
+
+    // Find a match that starts with the query
+    for (const item of searchableItems) {
+      const title = item.title.toLowerCase();
+      if (title.startsWith(lowerQuery) && title !== lowerQuery) {
+        return item.title;
+      }
+    }
+    return "";
+  }, [query]);
 
   useEffect(() => {
     if (isOpen) {
-      inputRef.current?.focus();
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
       setQuery("");
-      setResults([]);
     }
     return () => {
       document.body.style.overflow = "";
     };
   }, [isOpen]);
-
-  useEffect(() => {
-    if (query.trim() === "") {
-      setResults([]);
-      return;
-    }
-
-    const lowerQuery = query.toLowerCase();
-    const filtered = searchableContent.filter(
-      item =>
-        item.title.toLowerCase().includes(lowerQuery) ||
-        item.description.toLowerCase().includes(lowerQuery) ||
-        item.category.toLowerCase().includes(lowerQuery)
-    );
-    setResults(filtered);
-  }, [query]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -78,83 +65,98 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
     return () => window.removeEventListener("keydown", handleEscape);
   }, [isOpen, onClose]);
 
+  const handleSearchSubmit = () => {
+    onClose();
+    // Find matching item and navigate
+    const searchQuery = query.trim().toLowerCase();
+    const matchedItem = searchableItems.find(
+      item => item.title.toLowerCase() === searchQuery
+    );
+    
+    if (matchedItem) {
+      window.location.href = matchedItem.url;
+    } else {
+      // Navigate to search page on main site
+      window.location.href = `https://vanyaaladin.com/search?q=${encodeURIComponent(query)}`;
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSearchSubmit();
+    }
+    // Tab to accept suggestion
+    if (e.key === "Tab" && inlineSuggestion) {
+      e.preventDefault();
+      setQuery(inlineSuggestion);
+    }
+  };
+
+  if (!isOpen) return null;
+
   return (
-    <>
-      {/* Backdrop with fade animation */}
-      <div 
-        className={`fixed inset-0 z-[100] bg-foreground/20 backdrop-blur-sm transition-opacity duration-300 ${
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
+    <div className="fixed inset-0 z-[200]">
+      {/* Full screen overlay */}
+      <div
+        className="absolute inset-0 bg-background/98 backdrop-blur-sm"
         onClick={onClose}
       />
-      
-      {/* Modal with slide animation */}
-      <div 
-        className={`fixed inset-x-0 top-0 z-[101] px-4 transition-all duration-300 ease-out ${
-          isOpen ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
-        }`}
-      >
-        <div 
-          className="w-full max-w-xl mx-auto mt-16 md:mt-24 bg-background rounded-2xl shadow-lg overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Search input - minimal */}
-          <div className="flex items-center gap-3 p-4">
-            <Search className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-            <input
-              ref={inputRef}
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Поиск..."
-              className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground outline-none text-base"
-            />
-            <button
-              onClick={onClose}
-              className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted"
-              aria-label="Закрыть поиск"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
 
-          {/* Results - only show when there's a query */}
-          {query.trim() !== "" && (
-            <div className="max-h-[50vh] overflow-y-auto border-t border-border">
-              {results.length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  <p className="text-sm">Ничего не найдено</p>
-                </div>
-              ) : (
-                <div className="py-1">
-                  {results.map((result, index) => (
-                    <a
-                      key={index}
-                      href={result.url}
-                      target={result.url.startsWith("http") ? "_blank" : undefined}
-                      rel={result.url.startsWith("http") ? "noopener noreferrer" : undefined}
-                      onClick={onClose}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <span className="text-foreground font-medium block truncate">{result.title}</span>
-                        <span className="text-xs text-muted-foreground">{result.category}</span>
-                      </div>
-                    </a>
-                  ))}
+      {/* Content */}
+      <div className="relative h-full flex flex-col">
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-6 right-6 md:top-8 md:right-8 p-3 text-muted-foreground hover:text-foreground transition-colors z-10"
+          aria-label="Закрыть поиск"
+        >
+          <X className="w-6 h-6 md:w-8 md:h-8" />
+        </button>
+
+        {/* Centered search input */}
+        <div className="flex-1 flex items-center justify-center px-6">
+          <div className="w-full max-w-4xl">
+            {/* Input container with inline suggestion */}
+            <div className="relative">
+              {/* Inline suggestion (gray text) */}
+              {inlineSuggestion && (
+                <div className="absolute inset-0 flex items-center pointer-events-none">
+                  <span className="text-3xl md:text-5xl lg:text-6xl font-light text-transparent">
+                    {query}
+                  </span>
+                  <span className="text-3xl md:text-5xl lg:text-6xl font-light text-muted-foreground/40">
+                    {inlineSuggestion.slice(query.length)}
+                  </span>
                 </div>
               )}
-            </div>
-          )}
 
-          {/* Footer hint - hide on mobile */}
-          <div className="hidden md:block px-4 py-2 border-t border-border">
-            <p className="text-xs text-muted-foreground text-center">
-              <kbd className="px-1 py-0.5 bg-muted rounded text-foreground/70 text-[10px]">Esc</kbd> закрыть
+              {/* Actual input */}
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Нажмите Enter для поиска"
+                className="w-full bg-transparent text-3xl md:text-5xl lg:text-6xl font-light text-foreground placeholder:text-muted-foreground/50 focus:outline-none border-b-2 border-border focus:border-foreground transition-colors pb-4"
+                autoComplete="off"
+                spellCheck="false"
+              />
+            </div>
+
+            {/* Hint */}
+            <p className="mt-6 text-sm text-muted-foreground">
+              Введите запрос и нажмите <kbd className="px-2 py-1 bg-muted rounded text-xs font-medium">Enter</kbd>
+              {inlineSuggestion && (
+                <span className="ml-4">
+                  или <kbd className="px-2 py-1 bg-muted rounded text-xs font-medium">Tab</kbd> для автозаполнения
+                </span>
+              )}
             </p>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
