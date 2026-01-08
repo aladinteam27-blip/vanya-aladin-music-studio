@@ -8,7 +8,7 @@ interface MobileTextDrumProps {
   tracks: Track[];
   currentIndex: number;
   onSelect: (index: number) => void;
-  offset: MotionValue<number>;
+  offset?: MotionValue<number>;
 }
 
 // Canonical mobile nav - _mobileNav_gjbqq_202
