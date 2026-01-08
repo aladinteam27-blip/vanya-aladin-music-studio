@@ -6,6 +6,8 @@ import {
   useMotionValue,
   useSpring,
   useTransform,
+  useMotionValueEvent,
+  MotionValue,
 } from "framer-motion";
 
 import type { Track } from "@/data/tracks";
@@ -20,10 +22,9 @@ interface CoverCarouselProps {
   onTrackChange?: (track: Track) => void;
 }
 
-// Canonical spring configs from Lady Gaga source
+// Canonical spring configs - EXACT from Lady Gaga source
 const springConfig = { stiffness: 400, mass: 0.1, damping: 20 };
 const hoverSpring = { stiffness: 100, mass: 0.1, damping: 20 };
-const snapSpring = { stiffness: 300, damping: 35 };
 
 // Canonical CSS variables - EXACT from _root_gjbqq_19
 const CONFIG = {
@@ -33,7 +34,6 @@ const CONFIG = {
     nextSlideRowOffset: 2,
     slideGap: 48,
     canvasHeight: "100vh",
-    // max(30vw, calc(100vh - 30vh))
     getSlideSize: (vw: number, vh: number) => Math.max(vw * 0.3, vh * 0.7),
   },
   mobile: {
@@ -42,17 +42,32 @@ const CONFIG = {
     nextSlideRowOffset: 2,
     slideGap: 28,
     canvasHeight: "90svh",
-    // min(calc(100vw - 80px), calc(90svh - 20vh))
     getSlideSize: (vw: number, vh: number) => Math.min(vw - 80, vh * 0.9 - vh * 0.2),
   },
 };
 
-type SwipeState = {
-  startX: number;
-  lastX: number;
-  startT: number;
-  lastT: number;
-};
+// Hook to get velocity of a motion value - canonical from Lady Gaga
+function useVelocity(value: MotionValue<number>): MotionValue<number> {
+  const velocity = useMotionValue(0);
+  
+  useEffect(() => {
+    const updateVelocity = () => {
+      const v = value.getVelocity();
+      velocity.set(v);
+      if (v !== 0) {
+        requestAnimationFrame(updateVelocity);
+      }
+    };
+    
+    const unsubscribe = value.on("change", () => {
+      requestAnimationFrame(updateVelocity);
+    });
+    
+    return unsubscribe;
+  }, [value, velocity]);
+  
+  return velocity;
+}
 
 export const CoverCarousel = memo(function CoverCarousel({
   tracks,
@@ -62,12 +77,11 @@ export const CoverCarousel = memo(function CoverCarousel({
 }: CoverCarouselProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const orchestratorRef = useRef<HTMLDivElement>(null);
+  const indicatorRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
   const [isDragging, setIsDragging] = useState(false);
-  const [isPressed, setIsPressed] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
   const [lazyIndex, setLazyIndex] = useState(0);
   const [viewportW, setViewportW] = useState<number>(() =>
@@ -80,22 +94,22 @@ export const CoverCarousel = memo(function CoverCarousel({
   const config = isMobile ? CONFIG.mobile : CONFIG.desktop;
   const slideSize = config.getSlideSize(viewportW, viewportH);
 
-  // Motion values - canonical scroll-based system
-  const scrollProgress = useMotionValue(0);
-  const scrollVelocity = useMotionValue(0);
-  const smoothProgress = useSpring(scrollProgress, springConfig);
+  // CANONICAL: Raw scroll position (0-1 normalized)
+  const scrollX = useMotionValue(0);
+  const scrollXProgress = useMotionValue(0);
+  
+  // CANONICAL: Velocity tracking from scroll
+  const scrollVelocity = useVelocity(scrollX);
+  
+  // CANONICAL: Spring-smoothed values for continuous animation
+  const smoothProgress = useSpring(scrollXProgress, springConfig);
   const smoothVelocity = useSpring(scrollVelocity, springConfig);
 
-  // Hover tilt values for center cover (Desktop)
+  // CANONICAL: Hover tilt values for center cover (Desktop only)
   const hoverTiltX = useMotionValue(0);
   const hoverTiltY = useMotionValue(0);
 
-  // Mobile gesture offsets
-  const dragOffset = useMotionValue(0);
-  const textDrumOffset = useMotionValue(0);
-  const swipeRef = useRef<SwipeState | null>(null);
-
-  // Canonical canvas transforms - diagonal movement
+  // CANONICAL: Canvas transforms - diagonal movement from progress
   const canvasY = useTransform(
     smoothProgress,
     [0, 1],
@@ -106,21 +120,31 @@ export const CoverCarousel = memo(function CoverCarousel({
     [0, 1],
     ["calc((-100% + 100vw) * 0)", "calc((-100% + 100vw) * 1)"]
   );
-
-  // Canonical: velocity-based rotation for non-center slides
-  const velocityRotateY = useTransform(
-    smoothVelocity,
-    [-1000, 0, 1000],
-    [-35, 0, -35]
+  
+  // Non-spring canvas Y for orchestrator (instant, no spring)
+  const canvasYRaw = useTransform(
+    scrollXProgress,
+    [0, 1],
+    ["calc(0 * var(--config-canvas-height) - 0%)", "calc(1 * var(--config-canvas-height) - 100%)"]
   );
 
-  // Canonical: velocity-based scale
-  const velocityScale = useTransform(
-    smoothVelocity,
-    [-1000, 0, 1000],
-    [1.1, 1, 1.1]
-  );
+  // CANONICAL: Update active index from smooth progress
+  useMotionValueEvent(smoothProgress, "change", (v) => {
+    const newIndex = Math.min(Math.max(Math.floor(v * tracks.length), 0), tracks.length - 1);
+    if (newIndex !== currentIndex) {
+      onIndexChange(newIndex);
+      onTrackChange?.(tracks[newIndex]);
+    }
+  });
+  
+  // CANONICAL: Track lazy index when velocity settles
+  useMotionValueEvent(smoothVelocity, "change", (v) => {
+    if (Math.abs(v) < 1) {
+      setLazyIndex(currentIndex);
+    }
+  });
 
+  // Viewport resize handler
   useEffect(() => {
     const onResize = () => {
       setViewportW(window.innerWidth);
@@ -136,22 +160,23 @@ export const CoverCarousel = memo(function CoverCarousel({
     };
   }, []);
 
-  // Update scroll progress on index change
+  // CANONICAL: Real scroll handler for orchestrator
   useEffect(() => {
-    const progress = currentIndex / Math.max(1, tracks.length - 1);
-    const duration = Math.abs(currentIndex - lazyIndex) * 0.3;
-    animate(scrollProgress, progress, { duration: Math.max(0.2, duration) });
-  }, [currentIndex, tracks.length, scrollProgress, lazyIndex]);
+    const orch = orchestratorRef.current;
+    if (!orch) return;
 
-  // Track lazy index for smooth transitions
-  useEffect(() => {
-    const unsubscribe = smoothVelocity.on("change", (v) => {
-      if (v === 0) {
-        setLazyIndex(currentIndex);
+    const handleScroll = () => {
+      const maxScroll = orch.scrollWidth - orch.clientWidth;
+      if (maxScroll > 0) {
+        const progress = orch.scrollLeft / maxScroll;
+        scrollX.set(orch.scrollLeft);
+        scrollXProgress.set(progress);
       }
-    });
-    return unsubscribe;
-  }, [smoothVelocity, currentIndex]);
+    };
+
+    orch.addEventListener("scroll", handleScroll, { passive: true });
+    return () => orch.removeEventListener("scroll", handleScroll);
+  }, [scrollX, scrollXProgress]);
 
   // Desktop: Mouse move for hover tilt - canonical behavior
   const handleMouseMove = useCallback(
@@ -174,110 +199,34 @@ export const CoverCarousel = memo(function CoverCarousel({
   const handleMouseLeave = useCallback(() => {
     hoverTiltX.set(0);
     hoverTiltY.set(0);
-    setIsHovered(false);
   }, [hoverTiltX, hoverTiltY]);
 
-  const handleMouseEnter = useCallback(() => {
-    setIsHovered(true);
-  }, []);
-
+  // CANONICAL: Navigate to slide - animate scroll position
   const handleTrackClick = useCallback(
     (index: number) => {
-      // Canonical: animate scroll to target slide
       const orch = orchestratorRef.current;
-      if (orch) {
-        orch.style.setProperty("scroll-snap-type", "none");
-        const targetSlide = orch.querySelector(`.orchestrator-slide:nth-of-type(${index + 1})`) as HTMLElement;
-        if (targetSlide) {
-          const rect = targetSlide.getBoundingClientRect();
-          const targetScroll = rect.left + rect.width / 2 - window.innerWidth / 2 + orch.scrollLeft;
-          animate(orch.scrollLeft, targetScroll, {
-            duration: Math.abs(currentIndex - index) * 0.3,
-            onUpdate: (v) => { orch.scrollLeft = v; },
-            onComplete: () => {
-              orch.style.setProperty("scroll-snap-type", "x mandatory");
-            },
-          });
-        }
+      if (!orch) return;
+
+      orch.style.setProperty("scroll-snap-type", "none");
+      
+      const slideEl = orch.querySelector(`.orchestrator-slide:nth-of-type(${index + 1})`) as HTMLElement;
+      if (slideEl) {
+        const rect = slideEl.getBoundingClientRect();
+        const targetScroll = rect.left + rect.width / 2 - window.innerWidth / 2 + orch.scrollLeft;
+        
+        animate(orch.scrollLeft, targetScroll, {
+          duration: Math.abs(currentIndex - index) * 0.3,
+          onUpdate: (v) => { orch.scrollLeft = v; },
+          onComplete: () => {
+            orch.style.setProperty("scroll-snap-type", "x mandatory");
+          },
+        });
       }
-      onIndexChange(index);
-      onTrackChange?.(tracks[index]);
     },
-    [currentIndex, tracks, onIndexChange, onTrackChange],
+    [currentIndex],
   );
 
-  // Mobile: horizontal swipe handlers
-  const handlePointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      if (!isMobile) return;
-      swipeRef.current = {
-        startX: e.clientX,
-        lastX: e.clientX,
-        startT: performance.now(),
-        lastT: performance.now(),
-      };
-      setIsDragging(true);
-      setIsPanning(true);
-    },
-    [isMobile],
-  );
-
-  const handlePointerMove = useCallback(
-    (e: React.PointerEvent) => {
-      if (!isMobile) return;
-      const s = swipeRef.current;
-      if (!s) return;
-
-      const now = performance.now();
-      s.lastX = e.clientX;
-      s.lastT = now;
-
-      const dx = e.clientX - s.startX;
-      dragOffset.set(dx);
-      textDrumOffset.set(dx);
-    },
-    [isMobile, dragOffset, textDrumOffset],
-  );
-
-  const finishSwipe = useCallback(() => {
-    if (!isMobile) return;
-    const s = swipeRef.current;
-    if (!s) return;
-
-    swipeRef.current = null;
-    setIsDragging(false);
-    setIsPanning(false);
-
-    const dx = dragOffset.get();
-    const dt = Math.max(1, s.lastT - s.startT);
-    const vx = ((s.lastX - s.startX) / dt) * 1000;
-
-    const threshold = 50;
-    const velocityThreshold = 400;
-
-    let newIndex = currentIndex;
-
-    if (Math.abs(dx) > threshold || Math.abs(vx) > velocityThreshold) {
-      if (dx < -threshold || vx < -velocityThreshold) {
-        newIndex = Math.min(tracks.length - 1, currentIndex + 1);
-      } else if (dx > threshold || vx > velocityThreshold) {
-        newIndex = Math.max(0, currentIndex - 1);
-      }
-    }
-
-    animate(dragOffset, 0, snapSpring);
-    animate(textDrumOffset, 0, snapSpring);
-
-    if (newIndex !== currentIndex) {
-      onIndexChange(newIndex);
-      onTrackChange?.(tracks[newIndex]);
-    }
-  }, [isMobile, currentIndex, tracks, dragOffset, textDrumOffset, onIndexChange, onTrackChange]);
-
-  const handlePointerUp = useCallback(() => finishSwipe(), [finishSwipe]);
-  const handlePointerCancel = useCallback(() => finishSwipe(), [finishSwipe]);
-
-  // Slider handlers
+  // Slider drag handlers
   const handleSliderDragStart = useCallback(() => {
     setIsDragging(true);
     const orch = orchestratorRef.current;
@@ -291,16 +240,16 @@ export const CoverCarousel = memo(function CoverCarousel({
   }, []);
 
   const handleSliderDrag = useCallback(
-    (e: React.MouseEvent, info: { delta: { x: number } }) => {
+    (_: unknown, info: { delta: { x: number } }) => {
       const orch = orchestratorRef.current;
-      const indicator = e.currentTarget.parentElement;
+      const indicator = indicatorRef.current;
       if (!orch || !indicator) return;
       orch.scrollLeft += info.delta.x * ((tracks.length - 1) / 2) * (orch.clientWidth / indicator.clientWidth);
     },
     [tracks.length],
   );
 
-  // Calculate canonical depth offset U function from source
+  // CANONICAL: Depth offset function U - exact from source
   const getDepthOffset = useCallback(
     (slideIndex: number, slidesCount: number, isMobileView: boolean) => {
       const multiplier = isMobileView ? 200 : 500;
@@ -359,12 +308,7 @@ export const CoverCarousel = memo(function CoverCarousel({
       style={{
         ...cssVars,
         height: config.canvasHeight,
-        touchAction: "pan-y pan-x",
       }}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerCancel}
     >
       {/* Left gradient mask - canonical _root_gjbqq_19:before */}
       <div
@@ -419,7 +363,6 @@ export const CoverCarousel = memo(function CoverCarousel({
           tracks={tracks}
           currentIndex={currentIndex}
           onSelect={handleTrackClick}
-          offset={textDrumOffset}
         />
       )}
 
@@ -427,7 +370,7 @@ export const CoverCarousel = memo(function CoverCarousel({
       <div className="grid">
         {/* Visible canvas - canonical _canvasVisibleWrapper_gjbqq_86 */}
         <div
-          className="overflow-hidden"
+          className="overflow-hidden pointer-events-none"
           style={{
             gridColumn: "1/1",
             gridRow: "1/1",
@@ -447,29 +390,13 @@ export const CoverCarousel = memo(function CoverCarousel({
               z: 0,
             }}
             onMouseMove={handleMouseMove}
-            onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
           >
             <AnimatePresence mode="sync">
               {tracks.map((track, slideIndex) => {
                 const gridPos = getGridPosition(slideIndex);
                 const entranceDelay = slideIndex * 0.06;
-                
-                const diff = slideIndex - currentIndex;
-                const isCenter = diff === 0;
-                const isPrev = diff < 0;
-                const isNext = diff > 0;
                 const zIndex = tracks.length - slideIndex;
-
-                // Canonical depth offset
-                const depthOffset = getDepthOffset(slideIndex, tracks.length, isMobile);
-                const xOffset = isNext && isMobile ? -80 : (isNext && !isMobile ? -40 : 0);
-
-                // Canonical inset shadow opacity
-                const insetOpacity = isCenter ? 0 : isPrev ? (isMobile ? 0.5 : 0.8) : 0.5;
-
-                // Canonical shadow X
-                const shadowX = isCenter ? 0 : isNext ? -40 : 30;
 
                 return (
                   <motion.li
@@ -489,25 +416,17 @@ export const CoverCarousel = memo(function CoverCarousel({
                       delay: isLoaded ? 0 : entranceDelay,
                     }}
                   >
-                    {/* Perspective wrapper - canonical */}
                     <CanonicalSlide
                       track={track}
                       slideIndex={slideIndex}
-                      isCenter={isCenter}
-                      isPrev={isPrev}
-                      isNext={isNext}
+                      slidesCount={tracks.length}
+                      activeSlideIndex={currentIndex}
                       isPanning={isPanning}
                       isMobile={isMobile}
-                      isPressed={isPressed}
-                      setIsPressed={setIsPressed}
                       hoverTiltX={hoverTiltX}
                       hoverTiltY={hoverTiltY}
                       scrollVelocity={smoothVelocity}
-                      depthOffset={depthOffset}
-                      xOffset={xOffset}
-                      insetOpacity={insetOpacity}
-                      shadowX={shadowX}
-                      onSelect={() => !isCenter && handleTrackClick(slideIndex)}
+                      getDepthOffset={getDepthOffset}
                     />
                   </motion.li>
                 );
@@ -517,6 +436,7 @@ export const CoverCarousel = memo(function CoverCarousel({
         </div>
 
         {/* Orchestrator canvas - canonical _canvasOrchestratorWrapper_gjbqq_90 */}
+        {/* THIS IS THE REAL SCROLL CONTAINER - wheel/touch/touchpad drives the animation */}
         <div
           ref={orchestratorRef}
           className="z-10 overflow-y-hidden overflow-x-scroll hide-scrollbar"
@@ -538,7 +458,7 @@ export const CoverCarousel = memo(function CoverCarousel({
               gridTemplateRows: `repeat(${gridRows}, ${cellSize}px)`,
               gap: config.slideGap,
               padding: `${nonActiveSpaceH}px ${nonActiveSpaceW}px`,
-              y: canvasY,
+              y: canvasYRaw,
             }}
           >
             {tracks.map((track, slideIndex) => {
@@ -573,57 +493,20 @@ export const CoverCarousel = memo(function CoverCarousel({
 
       {/* Bottom progress indicator - canonical _indicator_gjbqq_105 */}
       <div
+        ref={indicatorRef}
         className="absolute z-10 overflow-hidden left-1/2 -translate-x-1/2"
         style={{
           bottom: `calc((${config.canvasHeight} - ${slideSize}px) / 4)`,
           width: isMobile ? "calc(100vw - 32px)" : slideSize,
         }}
       >
-        <div className="relative w-full h-8">
-          {/* Track line - canonical _root_88mzc_19:before */}
-          <div
-            className="absolute top-1/2 -translate-y-1/2 h-[1px] left-0 w-full"
-            style={{ background: "hsl(var(--foreground) / 0.3)" }}
-          />
-          {/* Thumb - canonical _thumb_88mzc_35 */}
-          <motion.div
-            className="absolute top-[calc(50%-4px)] left-0 h-2 rounded-full cursor-grab active:cursor-grabbing"
-            style={{
-              background: "hsl(var(--foreground))",
-              width: `calc(100% / ${tracks.length})`,
-              left: `calc(${currentIndex} * 100% / ${tracks.length})`,
-              transformOrigin: "center",
-            }}
-            initial={{ scaleY: 0.125 }}
-            animate={{ 
-              scaleY: isHovered ? 0.5 : isDragging ? 1 : 0.125,
-            }}
-            whileHover={{ scaleY: 1 }}
-            whileDrag={{ cursor: "grabbing" }}
-            transition={{ type: "spring", ...springConfig }}
-          />
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.001"
-            value={currentIndex / Math.max(1, tracks.length - 1)}
-            onChange={(e) => {
-              const value = parseFloat(e.target.value);
-              const newIndex = Math.round(value * (tracks.length - 1));
-              if (newIndex !== currentIndex) {
-                onIndexChange(newIndex);
-                onTrackChange?.(tracks[newIndex]);
-              }
-            }}
-            onMouseDown={handleSliderDragStart}
-            onMouseUp={handleSliderDragEnd}
-            onTouchStart={handleSliderDragStart}
-            onTouchEnd={handleSliderDragEnd}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            style={{ touchAction: "pan-y" }}
-          />
-        </div>
+        <ProgressIndicator
+          numberOfSlides={tracks.length}
+          scrollProgress={smoothProgress}
+          onDragStart={handleSliderDragStart}
+          onDragEnd={handleSliderDragEnd}
+          onDrag={handleSliderDrag}
+        />
         <p className="text-center text-xs text-foreground/40 mt-2 font-medium tracking-wide">
           {currentIndex + 1} / {tracks.length}
         </p>
@@ -632,65 +515,148 @@ export const CoverCarousel = memo(function CoverCarousel({
   );
 });
 
-// Canonical slide component with all 3D transforms
+// CANONICAL: Progress indicator component - exact from source
+interface ProgressIndicatorProps {
+  numberOfSlides: number;
+  scrollProgress: MotionValue<number>;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+  onDrag?: (e: unknown, info: { delta: { x: number } }) => void;
+}
+
+const indicatorVariants = {
+  initial: { scaleY: 1 / 8 },
+  rootHover: { scaleY: 0.5 },
+  hover: { scaleY: 1 },
+  drag: { cursor: "grabbing" },
+};
+
+const ProgressIndicator = memo(function ProgressIndicator({
+  numberOfSlides,
+  scrollProgress,
+  onDragStart,
+  onDragEnd,
+  onDrag,
+}: ProgressIndicatorProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const thumbX = useTransform(
+    scrollProgress,
+    [0, 1],
+    ["calc(0% * (var(--ci-dynamic-number-of-slides) - 1))", "calc(100% * (var(--ci-dynamic-number-of-slides) - 1))"]
+  );
+
+  const handleDragStart = (e: unknown, info: { delta: { x: number } }) => {
+    setIsDragging(true);
+    onDragStart?.();
+  };
+
+  const handleDragEnd = (e: unknown, info: { delta: { x: number } }) => {
+    setIsDragging(false);
+    setIsHovered(false);
+    onDragEnd?.();
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="relative w-full h-8"
+      style={{ "--ci-dynamic-number-of-slides": numberOfSlides } as React.CSSProperties}
+    >
+      {/* Track line */}
+      <div
+        className="absolute top-1/2 -translate-y-1/2 h-[1px] left-0 w-full"
+        style={{ background: "hsl(var(--foreground) / 0.3)" }}
+      />
+      {/* Thumb */}
+      <motion.div
+        initial="initial"
+        whileHover="hover"
+        whileDrag="drag"
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDrag={onDrag}
+        dragListener={false}
+        animate={isHovered ? "rootHover" : "initial"}
+        variants={indicatorVariants}
+        className="absolute top-[calc(50%-4px)] left-0 h-2 rounded-full cursor-grab active:cursor-grabbing"
+        style={{
+          background: "hsl(var(--foreground))",
+          width: `calc(100% / ${numberOfSlides})`,
+          ...(!isDragging && { x: thumbX }),
+        }}
+        drag="x"
+        dragMomentum={false}
+        dragConstraints={containerRef}
+        onPointerDownCapture={(e) => {
+          // Start drag on pointer down
+        }}
+      />
+    </div>
+  );
+});
+
+// CANONICAL: Slide component with all 3D transforms driven by velocity
 interface CanonicalSlideProps {
   track: Track;
   slideIndex: number;
-  isCenter: boolean;
-  isPrev: boolean;
-  isNext: boolean;
+  slidesCount: number;
+  activeSlideIndex: number;
   isPanning: boolean;
   isMobile: boolean;
-  isPressed: boolean;
-  setIsPressed: (v: boolean) => void;
-  hoverTiltX: ReturnType<typeof useMotionValue<number>>;
-  hoverTiltY: ReturnType<typeof useMotionValue<number>>;
-  scrollVelocity: ReturnType<typeof useSpring>;
-  depthOffset: number;
-  xOffset: number;
-  insetOpacity: number;
-  shadowX: number;
-  onSelect: () => void;
+  hoverTiltX: MotionValue<number>;
+  hoverTiltY: MotionValue<number>;
+  scrollVelocity: MotionValue<number>;
+  getDepthOffset: (slideIndex: number, slidesCount: number, isMobile: boolean) => number;
 }
 
 const CanonicalSlide = memo(function CanonicalSlide({
   track,
   slideIndex,
-  isCenter,
-  isPrev,
-  isNext,
+  slidesCount,
+  activeSlideIndex,
   isPanning,
   isMobile,
-  isPressed,
-  setIsPressed,
   hoverTiltX,
   hoverTiltY,
   scrollVelocity,
-  depthOffset,
-  xOffset,
-  insetOpacity,
-  shadowX,
-  onSelect,
+  getDepthOffset,
 }: CanonicalSlideProps) {
   const velocityRange = isMobile ? 80 : 1000;
+  
+  const isCenter = slideIndex === activeSlideIndex;
+  const isPrev = activeSlideIndex > slideIndex;
+  const isNext = activeSlideIndex < slideIndex;
 
-  // Canonical rotateX from hover - only for center
+  // CANONICAL: rotateX from hover - only for center slide
   const rotateXFromHover = useTransform(hoverTiltY, [-0.5, 0.5], isCenter ? [8, -8] : [0, 0]);
   const smoothRotateX = useSpring(rotateXFromHover, hoverSpring);
 
-  // Canonical rotateY: velocity-based OR hover-based for center
+  // CANONICAL: rotateY from hover (center) OR velocity (non-center)
+  const rotateYFromHover = useTransform(hoverTiltX, [-0.5, 0.5], isCenter ? [-8, 8] : [0, 0]);
   const rotateYFromVelocity = useTransform(
     scrollVelocity,
     [-velocityRange, 0, velocityRange],
     [-35, 0, -35]
   );
-  const rotateYFromHover = useTransform(hoverTiltX, [-0.5, 0.5], isCenter ? [-8, 8] : [0, 0]);
   
-  // Use velocity for non-center, hover for center
+  // CANONICAL: Combine hover and velocity - velocity when scrolling, hover when idle
   const rotateY = isCenter ? rotateYFromHover : rotateYFromVelocity;
   const smoothRotateY = useSpring(rotateY, hoverSpring);
 
-  // Canonical scale from velocity
+  // CANONICAL: Inset shadow opacity from velocity
+  const insetFromVelocity = useTransform(
+    scrollVelocity,
+    [-velocityRange, 0, velocityRange],
+    [isPrev ? 0.5 : 0, isPrev ? (isMobile ? 0.8 : 1) : 0, isPrev ? 0.5 : 0]
+  );
+  const smoothInsetOpacity = useSpring(insetFromVelocity, hoverSpring);
+
+  // CANONICAL: Scale from velocity
   const scaleFromVelocity = useTransform(
     scrollVelocity,
     [-velocityRange, 0, velocityRange],
@@ -698,7 +664,7 @@ const CanonicalSlide = memo(function CanonicalSlide({
   );
   const smoothScale = useSpring(scaleFromVelocity, hoverSpring);
 
-  // Canonical shadow X from velocity
+  // CANONICAL: Shadow X from velocity
   const shadowXFromVelocity = useTransform(
     scrollVelocity,
     [-velocityRange, 0, velocityRange],
@@ -706,24 +672,14 @@ const CanonicalSlide = memo(function CanonicalSlide({
   );
   const smoothShadowX = useSpring(shadowXFromVelocity, hoverSpring);
 
-  // Canonical X offset from velocity
+  // CANONICAL: X offset from velocity (depth)
+  const depthOffset = getDepthOffset(slideIndex, slidesCount, isMobile);
   const xFromVelocity = useTransform(
     scrollVelocity,
     [-velocityRange, 0, velocityRange],
     [depthOffset, !isMobile && isNext ? -80 : 0, depthOffset]
   );
   const smoothX = useSpring(xFromVelocity, hoverSpring);
-
-  // Canonical inset opacity from velocity
-  const insetFromVelocity = useTransform(
-    scrollVelocity,
-    [-velocityRange, 0, velocityRange],
-    [isPrev ? 0.5 : 0, isPrev ? (isMobile ? 0.8 : 1) : 0, isPrev ? 0.5 : 0]
-  );
-  const smoothInsetOpacity = useSpring(
-    isPanning ? insetFromVelocity : insetOpacity,
-    hoverSpring
-  );
 
   return (
     <motion.div
@@ -740,22 +696,9 @@ const CanonicalSlide = memo(function CanonicalSlide({
           rotateX: isCenter ? smoothRotateX : 0,
           scale: isCenter ? 1 : smoothScale,
         }}
-        animate={{
-          scale: isCenter && isPressed ? 0.95 : 1,
-        }}
-        transition={{ type: "spring", ...hoverSpring }}
-        onMouseDown={() => isCenter && setIsPressed(true)}
-        onMouseUp={() => setIsPressed(false)}
-        onMouseLeave={() => setIsPressed(false)}
-        onClick={onSelect}
       >
         {/* Cover image - canonical _showcaseSlideInner_gjbqq_164 */}
-        <div
-          className={cn(
-            "overflow-hidden rounded flex-shrink-0",
-            isCenter ? "cursor-default" : "cursor-pointer",
-          )}
-        >
+        <div className="overflow-hidden rounded flex-shrink-0">
           <img
             src={track.coverUrl}
             alt={`${track.title} - ${track.format} ${track.year}`}
