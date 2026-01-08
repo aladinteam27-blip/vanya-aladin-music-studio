@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { X } from "lucide-react";
 import { navLinks, socialLinks, contactInfo } from "@/data/siteData";
 import { useLockBodyScroll, useEscapeKey } from "@/hooks/useBodyLock";
@@ -10,6 +11,8 @@ interface MobileMenuProps {
 
 export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const currentYear = new Date().getFullYear();
+  const location = useLocation();
 
   useLockBodyScroll(isOpen);
   useEscapeKey(onClose, isOpen);
@@ -18,6 +21,12 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
       onClose();
     }
+  };
+
+  // Check if link is active - "Музыка" active on /music
+  const isActiveLink = (href: string) => {
+    if (href === "/music" && (location.pathname === "/music" || location.pathname.startsWith("/music"))) return true;
+    return false;
   };
 
   return (
@@ -57,23 +66,38 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
         {/* Navigation links */}
         <nav className="p-4" aria-label="Меню навигации">
           <ul className="space-y-1">
-            {navLinks.map((link, index) => (
-              <li key={link.href} style={{ animationDelay: `${index * 50}ms` }}>
-                <a
-                  href={link.href}
-                  target={link.external ? "_blank" : undefined}
-                  rel={link.rel || (link.external ? "noopener" : undefined)}
-                  className={`block px-4 py-3 rounded-xl hover:text-foreground hover:bg-muted transition-all duration-200 ${
-                    link.active 
-                      ? "bg-[hsl(230,75%,60%)]/10 text-[hsl(230,75%,60%)] font-medium border-l-2 border-[hsl(230,75%,60%)]" 
-                      : "text-foreground/80"
-                  }`}
-                  onClick={onClose}
-                >
-                  {link.label}
-                </a>
-              </li>
-            ))}
+            {navLinks.map((link, index) => {
+              const isActive = isActiveLink(link.href);
+              const isExternal = link.external;
+              
+              return (
+                <li key={link.href} style={{ animationDelay: `${index * 50}ms` }}>
+                  {isExternal ? (
+                    <a
+                      href={link.href}
+                      target="_blank"
+                      rel={link.rel || "noopener"}
+                      className="block px-4 py-3 rounded-xl text-foreground/80 hover:text-foreground hover:bg-muted transition-all duration-200"
+                      onClick={onClose}
+                    >
+                      {link.label}
+                    </a>
+                  ) : (
+                    <Link
+                      to={link.href}
+                      className={`block px-4 py-3 rounded-xl transition-all duration-200 ${
+                        isActive 
+                          ? "bg-blue-50 text-[#2563eb] font-medium border-l-2 border-[#2563eb]" 
+                          : "text-foreground/80 hover:text-foreground hover:bg-muted"
+                      }`}
+                      onClick={onClose}
+                    >
+                      {link.label}
+                    </Link>
+                  )}
+                </li>
+              );
+            })}
             <li style={{ animationDelay: `${navLinks.length * 50}ms` }}>
               <a
                 href="https://vanyaaladin.com/contacts"
@@ -136,7 +160,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
         {/* Footer */}
         <div className="px-4 py-6 border-t border-border">
           <p className="text-xs text-muted-foreground">
-            © 2025 Ваня Аладин ·{" "}
+            © {currentYear} Ваня Аладин ·{" "}
             <a
               href="https://vanyaaladin.com/policy"
               target="_blank"

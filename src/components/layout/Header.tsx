@@ -1,4 +1,4 @@
-import { useState, useEffect, memo } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { navLinks, logoSrc } from "@/data/siteData";
 import MobileMenu from "./MobileMenu";
@@ -9,21 +9,34 @@ import { cn } from "@/lib/utils";
 export const Header = memo(function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
   const [isScrolled, setIsScrolled] = useState(false);
+  const lastScrollY = useRef(0);
   const location = useLocation();
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
+      const currentScrollY = window.scrollY;
+
+      // Show/hide based on scroll direction
+      if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
+        setIsVisible(false);
+      } else {
+        setIsVisible(true);
+      }
+
+      setIsScrolled(currentScrollY > 50);
+      lastScrollY.current = currentScrollY;
     };
+
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Check if link is active
+  // Check if link is active - "Музыка" active on /music
   const isActiveLink = (href: string, active?: boolean) => {
+    if (href === "/music" && (location.pathname === "/music" || location.pathname.startsWith("/music"))) return true;
     if (active) return true;
-    if (href === "/music" && location.pathname.startsWith("/music")) return true;
     return false;
   };
 
@@ -47,6 +60,7 @@ export const Header = memo(function Header() {
       <header
         className={cn(
           "fixed top-0 left-0 right-0 z-50 transition-all duration-500",
+          isVisible ? "translate-y-0" : "-translate-y-full",
           isScrolled ? "bg-background/95 backdrop-blur-md shadow-sm" : ""
         )}
       >
@@ -57,7 +71,7 @@ export const Header = memo(function Header() {
             isScrolled ? "opacity-0" : "opacity-100"
           )}
           style={{
-            background: "linear-gradient(180deg, hsla(40,30%,96%,0.98) 0%, hsla(40,30%,96%,0) 100%)"
+            background: "linear-gradient(180deg, hsla(0,0%,100%,0.9) 0%, hsla(0,0%,100%,0) 100%)"
           }}
           aria-hidden="true"
         />
@@ -95,11 +109,6 @@ export const Header = memo(function Header() {
                   const isActive = isActiveLink(link.href, link.active);
                   const isExternal = link.external;
                   
-                  const linkClass = cn(
-                    "nav-link-styled text-sm font-medium transition-colors",
-                    isActive && "nav-link-active"
-                  );
-                  
                   if (isExternal) {
                     return (
                       <a
@@ -107,7 +116,7 @@ export const Header = memo(function Header() {
                         href={link.href}
                         target="_blank"
                         rel={link.rel || "noopener"}
-                        className={linkClass}
+                        className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
                       >
                         {link.label}
                       </a>
@@ -118,7 +127,12 @@ export const Header = memo(function Header() {
                     <Link
                       key={link.href}
                       to={link.href}
-                      className={linkClass}
+                      className={cn(
+                        "text-sm font-medium transition-colors",
+                        isActive 
+                          ? "text-[#2563eb] border-b-2 border-[#2563eb] pb-0.5" 
+                          : "text-foreground/70 hover:text-foreground"
+                      )}
                     >
                       {link.label}
                     </Link>
@@ -152,14 +166,14 @@ export const Header = memo(function Header() {
                     href={link.href}
                     target={link.external ? "_blank" : undefined}
                     rel={link.rel || (link.external ? "noopener" : undefined)}
-                    className="nav-link-styled text-sm font-medium"
+                    className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
                   >
                     {link.label}
                   </a>
                 ))}
                 <a 
                   href="https://vanyaaladin.com/contacts" 
-                  className="nav-link-styled text-sm font-medium"
+                  className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
                 >
                   Контакты
                 </a>
