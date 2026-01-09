@@ -1,6 +1,7 @@
-import { memo, useState, useEffect } from 'react';
+import { memo, useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { LayoutGrid, List, ChevronDown } from 'lucide-react';
+import { motion, useInView } from 'framer-motion';
 import { Track } from '@/data/tracks';
 import { cn } from '@/lib/utils';
 
@@ -17,9 +18,7 @@ export const MusicGrid = memo(function MusicGrid({
 }: MusicGridProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [isMobile, setIsMobile] = useState(false);
-  // Use a ref to persist visible count across re-renders
   const [visibleCount, setVisibleCount] = useState(() => {
-    // Initialize based on window width
     if (typeof window !== 'undefined') {
       return window.innerWidth < 768 ? 4 : 4;
     }
@@ -29,7 +28,6 @@ export const MusicGrid = memo(function MusicGrid({
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
-      // Don't reset visibleCount on resize - keep user's expanded state
     };
     checkMobile();
     window.addEventListener('resize', checkMobile);
@@ -45,8 +43,8 @@ export const MusicGrid = memo(function MusicGrid({
   };
 
   return (
-    <section className="py-12 md:py-20 bg-cream">
-      <div className="container mx-auto px-4 md:px-6 lg:px-8">
+    <section className="py-12 md:py-20 bg-background">
+      <div className="container mx-auto px-4 md:px-6 lg:px-8 max-w-[1660px]">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xl md:text-2xl font-semibold text-foreground">
@@ -72,16 +70,16 @@ export const MusicGrid = memo(function MusicGrid({
           </div>
         </div>
 
-        {/* Grid View - 4 columns on mobile, 3-4 on desktop */}
+        {/* Grid View - CANONICAL: scroll-triggered entrance animation */}
         {viewMode === 'grid' && (
           <div className={cn(
-            "grid gap-3 md:gap-5",
+            "grid gap-4 md:gap-6",
             isMobile 
               ? "grid-cols-2" 
               : "grid-cols-3 lg:grid-cols-4"
           )}>
             {visibleTracks.map((track, index) => (
-              <GridCard 
+              <ScrollRevealCard 
                 key={track.id} 
                 track={track} 
                 index={index}
@@ -96,7 +94,7 @@ export const MusicGrid = memo(function MusicGrid({
         {viewMode === 'list' && (
           <div className="space-y-3 max-w-4xl">
             {visibleTracks.map((track, index) => (
-              <ListItem 
+              <ScrollRevealListItem 
                 key={track.id} 
                 track={track} 
                 index={index}
@@ -113,10 +111,10 @@ export const MusicGrid = memo(function MusicGrid({
               onClick={handleShowMore}
               className={cn(
                 'flex items-center gap-2 px-6 py-2.5 rounded-full',
-                'bg-charcoal text-warm-white',
+                'bg-foreground text-background',
                 'text-sm font-medium',
                 'transition-all duration-200',
-                'hover:bg-charcoal-light hover:scale-105',
+                'hover:opacity-90 hover:scale-105',
                 'active:scale-95'
               )}
             >
@@ -130,7 +128,7 @@ export const MusicGrid = memo(function MusicGrid({
   );
 });
 
-// Grid Card Component - Square, press-in effect on desktop hover
+// CANONICAL: Scroll-triggered card with press-in effect
 interface CardProps {
   track: Track;
   index: number;
@@ -138,93 +136,109 @@ interface CardProps {
   onClick?: () => void;
 }
 
-const GridCard = memo(function GridCard({ track, index, isMobile, onClick }: CardProps) {
+const ScrollRevealCard = memo(function ScrollRevealCard({ track, index, isMobile, onClick }: CardProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "-50px" });
+
   return (
-    <Link
-      to={`/music/${track.slug}`}
-      className={cn(
-        "group block transition-all duration-200",
-        // Press-in effect on desktop hover
-        !isMobile && "hover:scale-[0.97] active:scale-95"
-      )}
-      style={{ 
-        animationName: 'fadeInUp',
-        animationDuration: '0.4s',
-        animationDelay: `${index * 80}ms`,
-        animationFillMode: 'both',
-        animationTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)'
-      }}
-      onClick={(e) => {
-        if (onClick) {
-          e.preventDefault();
-          onClick();
-        }
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 40 }}
+      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
+      transition={{
+        type: "spring",
+        stiffness: 100,
+        damping: 20,
+        delay: (index % 4) * 0.08,
       }}
     >
-      {/* Cover - square with rounded corners */}
-      <div className="overflow-hidden rounded-lg bg-muted aspect-square shadow-sm group-hover:shadow-md transition-shadow duration-200">
-        <img
-          src={track.coverUrl}
-          alt={`Обложка трека "${track.title}" - ${track.format} ${track.year} года, исполнитель Ваня Аладин`}
-          className="w-full h-full object-cover transition-transform duration-300"
-          loading="lazy"
-        />
-      </div>
-      <div className="p-2 md:p-3">
-        <h3 className="font-medium text-foreground truncate text-sm md:text-base">
-          {track.title}
-        </h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          {track.format} · {track.year}
-        </p>
-      </div>
-    </Link>
+      <Link
+        to={`/music/${track.slug}`}
+        className={cn(
+          "group block transition-all duration-200",
+          // CANONICAL: Press-in effect on desktop hover
+          !isMobile && "hover:scale-[0.97] active:scale-95"
+        )}
+        onClick={(e) => {
+          if (onClick) {
+            e.preventDefault();
+            onClick();
+          }
+        }}
+      >
+        {/* Cover - square with soft rounded corners */}
+        <div className="overflow-hidden rounded-lg bg-muted aspect-square transition-shadow duration-200 group-hover:shadow-md">
+          <img
+            src={track.coverUrl}
+            alt={`Обложка трека "${track.title}" - ${track.format} ${track.year} года, исполнитель Ваня Аладин`}
+            className="w-full h-full object-cover transition-transform duration-300"
+            loading="lazy"
+          />
+        </div>
+        <div className="p-2 md:p-3">
+          <h3 className="font-medium text-foreground truncate text-sm md:text-base">
+            {track.title}
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {track.format} · {track.year}
+          </p>
+        </div>
+      </Link>
+    </motion.div>
   );
 });
 
-// List Item Component
-const ListItem = memo(function ListItem({ track, index, onClick }: CardProps) {
+// CANONICAL: Scroll-triggered list item
+const ScrollRevealListItem = memo(function ScrollRevealListItem({ track, index, onClick }: CardProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "-30px" });
+
   return (
-    <Link
-      to={`/music/${track.slug}`}
-      className={cn(
-        'flex items-center gap-4 p-3 md:p-4 rounded-lg',
-        'bg-card hover:bg-accent transition-all duration-200',
-        'hover:scale-[0.99] active:scale-[0.98]'
-      )}
-      style={{ 
-        animationName: 'fadeInUp',
-        animationDuration: '0.3s',
-        animationDelay: `${index * 60}ms`,
-        animationFillMode: 'both',
-        animationTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)'
-      }}
-      onClick={(e) => {
-        if (onClick) {
-          e.preventDefault();
-          onClick();
-        }
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, x: -20 }}
+      animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: -20 }}
+      transition={{
+        type: "spring",
+        stiffness: 100,
+        damping: 20,
+        delay: index * 0.05,
       }}
     >
-      {/* Cover */}
-      <div className="w-14 h-14 md:w-16 md:h-16 rounded-md overflow-hidden flex-shrink-0 bg-muted">
-        <img
-          src={track.coverUrl}
-          alt={`Обложка трека "${track.title}" - ${track.format} ${track.year} года, исполнитель Ваня Аладин`}
-          className="w-full h-full object-cover"
-          loading="lazy"
-        />
-      </div>
+      <Link
+        to={`/music/${track.slug}`}
+        className={cn(
+          'flex items-center gap-4 p-3 md:p-4 rounded-lg',
+          'bg-card hover:bg-accent transition-all duration-200',
+          'hover:scale-[0.99] active:scale-[0.98]'
+        )}
+        onClick={(e) => {
+          if (onClick) {
+            e.preventDefault();
+            onClick();
+          }
+        }}
+      >
+        {/* Cover */}
+        <div className="w-14 h-14 md:w-16 md:h-16 rounded-md overflow-hidden flex-shrink-0 bg-muted">
+          <img
+            src={track.coverUrl}
+            alt={`Обложка трека "${track.title}" - ${track.format} ${track.year} года, исполнитель Ваня Аладин`}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        </div>
 
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <h3 className="font-medium text-foreground text-sm md:text-base truncate">
-          {track.title}
-        </h3>
-        <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
-          {track.format} · {track.year}
-        </p>
-      </div>
-    </Link>
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <h3 className="font-medium text-foreground text-sm md:text-base truncate">
+            {track.title}
+          </h3>
+          <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
+            {track.format} · {track.year}
+          </p>
+        </div>
+      </Link>
+    </motion.div>
   );
 });

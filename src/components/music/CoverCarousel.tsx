@@ -8,6 +8,7 @@ import {
   useTransform,
   useMotionValueEvent,
   MotionValue,
+  useDragControls,
 } from "framer-motion";
 
 import type { Track } from "@/data/tracks";
@@ -22,11 +23,11 @@ interface CoverCarouselProps {
   onTrackChange?: (track: Track) => void;
 }
 
-// Canonical spring configs - EXACT from Lady Gaga source
+// CANONICAL spring configs - EXACT from Lady Gaga source
 const springConfig = { stiffness: 400, mass: 0.1, damping: 20 };
 const hoverSpring = { stiffness: 100, mass: 0.1, damping: 20 };
 
-// Canonical CSS variables - EXACT from _root_gjbqq_19
+// CANONICAL CSS variables - EXACT from _root_gjbqq_19
 const CONFIG = {
   desktop: {
     slideGridSize: 4,
@@ -46,7 +47,7 @@ const CONFIG = {
   },
 };
 
-// Hook to get velocity of a motion value - canonical from Lady Gaga
+// Hook to get velocity of a motion value - CANONICAL from Lady Gaga
 function useVelocity(value: MotionValue<number>): MotionValue<number> {
   const velocity = useMotionValue(0);
   
@@ -84,6 +85,7 @@ export const CoverCarousel = memo(function CoverCarousel({
   const [isLoaded, setIsLoaded] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
   const [lazyIndex, setLazyIndex] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
   const [viewportW, setViewportW] = useState<number>(() =>
     typeof window !== "undefined" ? window.innerWidth : 375,
   );
@@ -139,7 +141,7 @@ export const CoverCarousel = memo(function CoverCarousel({
   
   // CANONICAL: Track lazy index when velocity settles
   useMotionValueEvent(smoothVelocity, "change", (v) => {
-    if (Math.abs(v) < 1) {
+    if (Math.abs(v) < 1 && !isAnimating) {
       setLazyIndex(currentIndex);
     }
   });
@@ -178,7 +180,7 @@ export const CoverCarousel = memo(function CoverCarousel({
     return () => orch.removeEventListener("scroll", handleScroll);
   }, [scrollX, scrollXProgress]);
 
-  // Desktop: Mouse move for hover tilt - canonical behavior
+  // Desktop: Mouse move for hover tilt - CANONICAL behavior
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
       if (isMobile || isDragging) return;
@@ -208,6 +210,7 @@ export const CoverCarousel = memo(function CoverCarousel({
       if (!orch) return;
 
       orch.style.setProperty("scroll-snap-type", "none");
+      setIsAnimating(true);
       
       const slideEl = orch.querySelector(`.orchestrator-slide:nth-of-type(${index + 1})`) as HTMLElement;
       if (slideEl) {
@@ -219,6 +222,7 @@ export const CoverCarousel = memo(function CoverCarousel({
           onUpdate: (v) => { orch.scrollLeft = v; },
           onComplete: () => {
             orch.style.setProperty("scroll-snap-type", "x mandatory");
+            setIsAnimating(false);
           },
         });
       }
@@ -226,7 +230,7 @@ export const CoverCarousel = memo(function CoverCarousel({
     [currentIndex],
   );
 
-  // Slider drag handlers
+  // CANONICAL: Slider drag handlers - exact from Lady Gaga source
   const handleSliderDragStart = useCallback(() => {
     setIsDragging(true);
     const orch = orchestratorRef.current;
@@ -244,6 +248,7 @@ export const CoverCarousel = memo(function CoverCarousel({
       const orch = orchestratorRef.current;
       const indicator = indicatorRef.current;
       if (!orch || !indicator) return;
+      // CANONICAL formula: delta.x * ((slides-1)/2) * (scrollWidth/indicatorWidth)
       orch.scrollLeft += info.delta.x * ((tracks.length - 1) / 2) * (orch.clientWidth / indicator.clientWidth);
     },
     [tracks.length],
@@ -266,7 +271,7 @@ export const CoverCarousel = memo(function CoverCarousel({
     [],
   );
 
-  // Grid position for each slide - canonical formula
+  // Grid position for each slide - CANONICAL formula
   const getGridPosition = useCallback(
     (slideIndex: number) => {
       const gridRow = slideIndex * config.nextSlideRowOffset + 1;
@@ -279,7 +284,7 @@ export const CoverCarousel = memo(function CoverCarousel({
     [config],
   );
 
-  // Canonical grid calculations
+  // CANONICAL grid calculations
   const gridCols = tracks.length * config.slideGridSize - (tracks.length - 1) * -1 * (config.nextSlideColumnOffset - config.slideGridSize);
   const gridRows = tracks.length * config.slideGridSize - (tracks.length - 1) * -1 * (config.nextSlideRowOffset - config.slideGridSize);
   const gapOverall = config.slideGap * (config.slideGridSize - 1);
@@ -310,7 +315,7 @@ export const CoverCarousel = memo(function CoverCarousel({
         height: config.canvasHeight,
       }}
     >
-      {/* Left gradient mask - canonical _root_gjbqq_19:before */}
+      {/* Left gradient mask - CANONICAL _root_gjbqq_19:before - LIGHT THEME */}
       <div
         className="absolute top-0 left-0 h-full z-10 pointer-events-none"
         style={{
@@ -322,7 +327,7 @@ export const CoverCarousel = memo(function CoverCarousel({
         }}
       />
 
-      {/* Desktop sidebar - canonical _sidebar_gjbqq_121 */}
+      {/* Desktop sidebar - CANONICAL _sidebar_gjbqq_121 */}
       {!isMobile && (
         <aside
           className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 z-20"
@@ -333,7 +338,7 @@ export const CoverCarousel = memo(function CoverCarousel({
         >
           <nav className="flex flex-col gap-0.5">
             {tracks.map((track, index) => {
-              const isActive = index === currentIndex;
+              const isActive = isAnimating ? lazyIndex === index : index === currentIndex;
               return (
                 <motion.button
                   key={track.id}
@@ -357,18 +362,18 @@ export const CoverCarousel = memo(function CoverCarousel({
         </aside>
       )}
 
-      {/* Mobile nav - canonical _mobileNav_gjbqq_202 */}
+      {/* Mobile nav - CANONICAL _mobileNav_gjbqq_202 */}
       {isMobile && (
         <MobileTextDrum
           tracks={tracks}
-          currentIndex={currentIndex}
+          currentIndex={isAnimating ? lazyIndex : currentIndex}
           onSelect={handleTrackClick}
         />
       )}
 
-      {/* Canvases wrapper - canonical _canvasesWrapper_gjbqq_75 */}
+      {/* Canvases wrapper - CANONICAL _canvasesWrapper_gjbqq_75 */}
       <div className="grid">
-        {/* Visible canvas - canonical _canvasVisibleWrapper_gjbqq_86 */}
+        {/* Visible canvas - CANONICAL _canvasVisibleWrapper_gjbqq_86 */}
         <div
           className="overflow-hidden pointer-events-none"
           style={{
@@ -435,7 +440,7 @@ export const CoverCarousel = memo(function CoverCarousel({
           </motion.ul>
         </div>
 
-        {/* Orchestrator canvas - canonical _canvasOrchestratorWrapper_gjbqq_90 */}
+        {/* Orchestrator canvas - CANONICAL _canvasOrchestratorWrapper_gjbqq_90 */}
         {/* THIS IS THE REAL SCROLL CONTAINER - wheel/touch/touchpad drives the animation */}
         <div
           ref={orchestratorRef}
@@ -491,7 +496,7 @@ export const CoverCarousel = memo(function CoverCarousel({
         </div>
       </div>
 
-      {/* Bottom progress indicator - canonical _indicator_gjbqq_105 */}
+      {/* Bottom progress indicator - CANONICAL _indicator_gjbqq_105 */}
       <div
         ref={indicatorRef}
         className="absolute z-10 overflow-hidden left-1/2 -translate-x-1/2"
@@ -515,7 +520,7 @@ export const CoverCarousel = memo(function CoverCarousel({
   );
 });
 
-// CANONICAL: Progress indicator component - exact from source
+// CANONICAL: Progress indicator component - EXACT from source
 interface ProgressIndicatorProps {
   numberOfSlides: number;
   scrollProgress: MotionValue<number>;
@@ -541,6 +546,9 @@ const ProgressIndicator = memo(function ProgressIndicator({
   const containerRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  
+  // CANONICAL: Use drag controls like Lady Gaga source
+  const dragControls = useDragControls();
 
   const thumbX = useTransform(
     scrollProgress,
@@ -548,12 +556,12 @@ const ProgressIndicator = memo(function ProgressIndicator({
     ["calc(0% * (var(--ci-dynamic-number-of-slides) - 1))", "calc(100% * (var(--ci-dynamic-number-of-slides) - 1))"]
   );
 
-  const handleDragStart = (e: unknown, info: { delta: { x: number } }) => {
+  const handleDragStart = () => {
     setIsDragging(true);
     onDragStart?.();
   };
 
-  const handleDragEnd = (e: unknown, info: { delta: { x: number } }) => {
+  const handleDragEnd = () => {
     setIsDragging(false);
     setIsHovered(false);
     onDragEnd?.();
@@ -572,7 +580,7 @@ const ProgressIndicator = memo(function ProgressIndicator({
         className="absolute top-1/2 -translate-y-1/2 h-[1px] left-0 w-full"
         style={{ background: "hsl(var(--foreground) / 0.3)" }}
       />
-      {/* Thumb */}
+      {/* Thumb - CANONICAL with dragControls */}
       <motion.div
         initial="initial"
         whileHover="hover"
@@ -592,9 +600,8 @@ const ProgressIndicator = memo(function ProgressIndicator({
         drag="x"
         dragMomentum={false}
         dragConstraints={containerRef}
-        onPointerDownCapture={(e) => {
-          // Start drag on pointer down
-        }}
+        dragControls={dragControls}
+        onPointerDownCapture={(e) => dragControls.start(e, { snapToCursor: true })}
       />
     </div>
   );
@@ -648,11 +655,12 @@ const CanonicalSlide = memo(function CanonicalSlide({
   const rotateY = isCenter ? rotateYFromHover : rotateYFromVelocity;
   const smoothRotateY = useSpring(rotateY, hoverSpring);
 
-  // CANONICAL: Inset shadow opacity from velocity
+  // CANONICAL: Inset shadow opacity from velocity - LIGHT THEME (soft shadows)
   const insetFromVelocity = useTransform(
     scrollVelocity,
     [-velocityRange, 0, velocityRange],
-    [isPrev ? 0.5 : 0, isPrev ? (isMobile ? 0.8 : 1) : 0, isPrev ? 0.5 : 0]
+    // LIGHT THEME: Reduce opacity significantly
+    [isPrev ? 0.15 : 0, isPrev ? (isMobile ? 0.25 : 0.3) : 0, isPrev ? 0.15 : 0]
   );
   const smoothInsetOpacity = useSpring(insetFromVelocity, hoverSpring);
 
@@ -697,7 +705,7 @@ const CanonicalSlide = memo(function CanonicalSlide({
           scale: isCenter ? 1 : smoothScale,
         }}
       >
-        {/* Cover image - canonical _showcaseSlideInner_gjbqq_164 */}
+        {/* Cover image - CANONICAL _showcaseSlideInner_gjbqq_164 */}
         <div className="overflow-hidden rounded flex-shrink-0">
           <img
             src={track.coverUrl}
@@ -708,7 +716,7 @@ const CanonicalSlide = memo(function CanonicalSlide({
           />
         </div>
 
-        {/* 3D edge border - canonical _showcaseSlideInnerBorder_gjbqq_167 */}
+        {/* 3D edge border - CANONICAL _showcaseSlideInnerBorder_gjbqq_167 */}
         <div
           className="absolute top-0 right-[-4px] w-[4px] h-full"
           style={{
@@ -718,31 +726,35 @@ const CanonicalSlide = memo(function CanonicalSlide({
           }}
         />
 
-        {/* Drop shadow - LIGHT THEME: soft, diffuse shadows */}
+        {/* Drop shadow - LIGHT THEME: soft, diffuse, light shadows */}
         {!isCenter && (
           <motion.div
             className="absolute top-0 left-0 w-full h-full -z-10 pointer-events-none rounded"
             initial={{ x: 0, z: -150 }}
             style={{
               scale: 1.05,
-              background: "hsl(var(--foreground) / 0.08)",
-              filter: "blur(20px)",
+              // LIGHT THEME: Very soft, barely visible shadow
+              background: "hsl(var(--foreground) / 0.06)",
+              filter: "blur(24px)",
               x: smoothShadowX,
               z: -150,
             }}
           />
         )}
 
-        {/* Inset shadow - LIGHT THEME: subtle depth gradient, NO black overlay */}
+        {/* Inset shadow - LIGHT THEME: subtle gradient, no black overlay */}
         {!isCenter && (
           <motion.div
             className="absolute top-0 right-0 w-full h-full z-10 pointer-events-none rounded"
             style={{
-              background: `linear-gradient(135deg, transparent 0%, transparent 60%, hsl(var(--foreground) / 0.05) 100%)`,
+              // LIGHT THEME: Very subtle gradient for depth
+              background: isPrev 
+                ? `linear-gradient(135deg, transparent 0%, transparent 50%, hsl(var(--foreground) / 0.08) 100%)`
+                : `linear-gradient(-45deg, transparent 0%, transparent 50%, hsl(var(--foreground) / 0.08) 100%)`,
               backgroundRepeat: "no-repeat",
               opacity: smoothInsetOpacity,
             }}
-            initial={{ opacity: isCenter ? 0 : 0.5 }}
+            initial={{ opacity: isCenter ? 0 : 0.3 }}
           />
         )}
       </motion.div>
