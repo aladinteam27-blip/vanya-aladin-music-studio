@@ -49,7 +49,7 @@ export const MiniPlayer = memo(function MiniPlayer({
     };
   }, [showFrame]);
 
-  // CANONICAL: Stop before footer - player doesn't overlap footer
+  // CANONICAL: Stop BEFORE footer with visual gap - player doesn't overlap footer
   useEffect(() => {
     const handleScroll = () => {
       const footer = document.querySelector('footer');
@@ -57,9 +57,9 @@ export const MiniPlayer = memo(function MiniPlayer({
       if (!footer || !player) return;
 
       const footerRect = footer.getBoundingClientRect();
-      const playerHeight = player.offsetHeight + 48; // 48px = bottom offset + margin
+      const playerHeight = player.offsetHeight + 80; // 80px = larger gap before footer
       
-      // If footer is visible and close to player position
+      // If footer is visible and close to player position - stop earlier
       if (footerRect.top < window.innerHeight - playerHeight) {
         setIsSticky(false);
       } else {
@@ -100,9 +100,10 @@ export const MiniPlayer = memo(function MiniPlayer({
         className={cn(
           'flex items-center gap-2.5 px-4 py-2.5',
           'bg-foreground text-background rounded-full',
-          'shadow-[0_8px_32px_rgba(0,0,0,0.35)]',
+          // LIGHT THEME: Minimal, soft shadow - not dirty
+          'shadow-[0_4px_16px_rgba(0,0,0,0.12)]',
           'transition-all duration-200',
-          'hover:shadow-[0_12px_40px_rgba(0,0,0,0.45)]',
+          'hover:shadow-[0_6px_20px_rgba(0,0,0,0.18)]',
           'active:scale-95',
           showFrame && 'ring-2 ring-[hsl(var(--brand-blue))] ring-offset-2 ring-offset-background'
         )}

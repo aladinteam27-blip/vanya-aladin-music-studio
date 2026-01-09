@@ -27,7 +27,7 @@ interface CoverCarouselProps {
 const springConfig = { stiffness: 400, mass: 0.1, damping: 20 };
 const hoverSpring = { stiffness: 100, mass: 0.1, damping: 20 };
 
-// CANONICAL CSS variables - EXACT from _root_gjbqq_19
+// CANONICAL CSS variables - EXACT from _root_gjbqq_19 Lady Gaga source
 const CONFIG = {
   desktop: {
     slideGridSize: 4,
@@ -35,7 +35,7 @@ const CONFIG = {
     nextSlideRowOffset: 2,
     slideGap: 48,
     canvasHeight: "100vh",
-    getSlideSize: (vw: number, vh: number) => Math.max(vw * 0.3, vh * 0.7),
+    getSlideSize: (vw: number, vh: number) => Math.max(vw * 0.3, vh - vh * 0.3),
   },
   mobile: {
     slideGridSize: 4,
@@ -254,13 +254,15 @@ export const CoverCarousel = memo(function CoverCarousel({
     [tracks.length],
   );
 
-  // CANONICAL: Depth offset function U - exact from source
+  // CANONICAL: Depth offset function U - EXACT from Lady Gaga source
   const getDepthOffset = useCallback(
     (slideIndex: number, slidesCount: number, isMobileView: boolean) => {
+      // EXACT formula from Lady Gaga: const e=s?200:500, r=(n-1)/2, a=o-r
       const multiplier = isMobileView ? 200 : 500;
       const halfCount = (slidesCount - 1) / 2;
       const offset = slideIndex - halfCount;
       
+      // EXACT from source: n%2===0?a===-.5||a===.5?-(a/r)*e:-((a>0?Math.ceil(a):Math.floor(a))/r)*e:-(a/r)*e
       if (slidesCount % 2 === 0) {
         return offset === -0.5 || offset === 0.5
           ? -(offset / halfCount) * multiplier
@@ -639,11 +641,12 @@ const CanonicalSlide = memo(function CanonicalSlide({
   const isPrev = activeSlideIndex > slideIndex;
   const isNext = activeSlideIndex < slideIndex;
 
-  // CANONICAL: rotateX from hover - only for center slide
+  // CANONICAL: rotateX from hover - only for center slide (pointer-driven tilt)
   const rotateXFromHover = useTransform(hoverTiltY, [-0.5, 0.5], isCenter ? [8, -8] : [0, 0]);
   const smoothRotateX = useSpring(rotateXFromHover, hoverSpring);
 
-  // CANONICAL: rotateY from hover (center) OR velocity (non-center)
+  // CANONICAL: rotateY - ALL cards rotate from velocity, center ALSO from hover
+  // Fix: First card (and all cards) must rotate - use velocity for ALL non-center
   const rotateYFromHover = useTransform(hoverTiltX, [-0.5, 0.5], isCenter ? [-8, 8] : [0, 0]);
   const rotateYFromVelocity = useTransform(
     scrollVelocity,
@@ -651,20 +654,21 @@ const CanonicalSlide = memo(function CanonicalSlide({
     [-35, 0, -35]
   );
   
-  // CANONICAL: Combine hover and velocity - velocity when scrolling, hover when idle
+  // CANONICAL: Center uses hover, ALL others use velocity (including first card)
   const rotateY = isCenter ? rotateYFromHover : rotateYFromVelocity;
   const smoothRotateY = useSpring(rotateY, hoverSpring);
 
-  // CANONICAL: Inset shadow opacity from velocity - LIGHT THEME (soft shadows)
+  // CANONICAL: Inset shadow - EXACT from source with LIGHT THEME adaptation
+  // Source: radial-gradient(farthest-corner at 75% 75%...) for depth corner effect
   const insetFromVelocity = useTransform(
     scrollVelocity,
     [-velocityRange, 0, velocityRange],
-    // LIGHT THEME: Reduce opacity significantly
-    [isPrev ? 0.15 : 0, isPrev ? (isMobile ? 0.25 : 0.3) : 0, isPrev ? 0.15 : 0]
+    // LIGHT THEME: Visible but soft - not black
+    [isPrev ? 0.2 : 0, isPrev ? (isMobile ? 0.35 : 0.45) : 0, isPrev ? 0.2 : 0]
   );
   const smoothInsetOpacity = useSpring(insetFromVelocity, hoverSpring);
 
-  // CANONICAL: Scale from velocity
+  // CANONICAL: Scale from velocity - applies to ALL non-center cards
   const scaleFromVelocity = useTransform(
     scrollVelocity,
     [-velocityRange, 0, velocityRange],
@@ -672,7 +676,7 @@ const CanonicalSlide = memo(function CanonicalSlide({
   );
   const smoothScale = useSpring(scaleFromVelocity, hoverSpring);
 
-  // CANONICAL: Shadow X from velocity
+  // CANONICAL: Shadow X from velocity - creates depth feel
   const shadowXFromVelocity = useTransform(
     scrollVelocity,
     [-velocityRange, 0, velocityRange],
@@ -680,7 +684,7 @@ const CanonicalSlide = memo(function CanonicalSlide({
   );
   const smoothShadowX = useSpring(shadowXFromVelocity, hoverSpring);
 
-  // CANONICAL: X offset from velocity (depth)
+  // CANONICAL: X offset from velocity (depth) - EXACT from U function
   const depthOffset = getDepthOffset(slideIndex, slidesCount, isMobile);
   const xFromVelocity = useTransform(
     scrollVelocity,
@@ -726,35 +730,38 @@ const CanonicalSlide = memo(function CanonicalSlide({
           }}
         />
 
-        {/* Drop shadow - LIGHT THEME: soft, diffuse, light shadows */}
+        {/* Drop shadow - LIGHT THEME: soft, subtle, creates depth */}
         {!isCenter && (
           <motion.div
             className="absolute top-0 left-0 w-full h-full -z-10 pointer-events-none rounded"
             initial={{ x: 0, z: -150 }}
             style={{
-              scale: 1.05,
-              // LIGHT THEME: Very soft, barely visible shadow
-              background: "hsl(var(--foreground) / 0.06)",
-              filter: "blur(24px)",
+              scale: 1.2, // EXACT from source
+              // LIGHT THEME: Soft gray instead of black
+              background: "hsl(var(--foreground) / 0.08)",
+              filter: "blur(12px)", // EXACT from source
               x: smoothShadowX,
               z: -150,
             }}
           />
         )}
 
-        {/* Inset shadow - LIGHT THEME: subtle gradient, no black overlay */}
+        {/* Inset shadow - CANONICAL corner gradient, LIGHT THEME colors */}
         {!isCenter && (
           <motion.div
             className="absolute top-0 right-0 w-full h-full z-10 pointer-events-none rounded"
             style={{
-              // LIGHT THEME: Very subtle gradient for depth
+              // CANONICAL: radial-gradient at corner + linear-gradient for depth
+              // LIGHT THEME: Using soft warm gray instead of black
               background: isPrev 
-                ? `linear-gradient(135deg, transparent 0%, transparent 50%, hsl(var(--foreground) / 0.08) 100%)`
-                : `linear-gradient(-45deg, transparent 0%, transparent 50%, hsl(var(--foreground) / 0.08) 100%)`,
+                ? `radial-gradient(farthest-corner at 75% 75%, hsl(var(--foreground) / 0.15) 0%, hsl(var(--foreground) / 0.1) 10%, transparent 100%), 
+                   linear-gradient(to top, hsl(var(--foreground) / 0.12) 0%, hsl(var(--foreground) / 0.08) 30%, transparent 60%)`
+                : `radial-gradient(farthest-corner at 25% 25%, hsl(var(--foreground) / 0.15) 0%, hsl(var(--foreground) / 0.1) 10%, transparent 100%), 
+                   linear-gradient(to bottom, hsl(var(--foreground) / 0.12) 0%, hsl(var(--foreground) / 0.08) 30%, transparent 60%)`,
               backgroundRepeat: "no-repeat",
               opacity: smoothInsetOpacity,
             }}
-            initial={{ opacity: isCenter ? 0 : 0.3 }}
+            initial={{ opacity: isCenter ? 0 : 0.4 }}
           />
         )}
       </motion.div>
