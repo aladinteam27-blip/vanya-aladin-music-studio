@@ -70,13 +70,13 @@ export const MusicGrid = memo(function MusicGrid({
           </div>
         </div>
 
-        {/* Grid View - CANONICAL: scroll-triggered entrance animation */}
+        {/* Grid View - CANONICAL: 3 cols desktop, 2 cols mobile, centered, scroll entrance */}
         {viewMode === 'grid' && (
           <div className={cn(
-            "grid gap-4 md:gap-6",
+            "grid gap-4 md:gap-6 mx-auto",
             isMobile 
-              ? "grid-cols-2" 
-              : "grid-cols-3 lg:grid-cols-4"
+              ? "grid-cols-2 max-w-lg" 
+              : "grid-cols-3 max-w-4xl"
           )}>
             {visibleTracks.map((track, index) => (
               <ScrollRevealCard 
