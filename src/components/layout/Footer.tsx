@@ -12,7 +12,6 @@ export const Footer = memo(function Footer({ onOpenCookieSettings }: FooterProps
     if (onOpenCookieSettings) {
       onOpenCookieSettings();
     } else {
-      // Trigger cookie banner by dispatching custom event
       window.dispatchEvent(new CustomEvent("openCookieSettings"));
     }
   };

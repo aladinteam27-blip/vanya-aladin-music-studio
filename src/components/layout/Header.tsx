@@ -1,18 +1,20 @@
 import { useState, useEffect, useRef, memo } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { navLinks, logoSrc } from "@/data/siteData";
 import MobileMenu from "./MobileMenu";
-import SearchModal from "./SearchModal";
-import { Menu, Search } from "lucide-react";
+import { Menu, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Header = memo(function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isVisible, setIsVisible] = useState(true);
   const [isScrolled, setIsScrolled] = useState(false);
   const lastScrollY = useRef(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -33,17 +35,51 @@ export const Header = memo(function Header() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Check if link is active - "Музыка" active on /music
-  const isActiveLink = (href: string, active?: boolean) => {
-    if (href === "/music" && (location.pathname === "/music" || location.pathname.startsWith("/music"))) return true;
-    if (active) return true;
+  // Focus input when search modal opens
+  useEffect(() => {
+    if (isSearchOpen) {
+      setTimeout(() => searchInputRef.current?.focus(), 100);
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+      setSearchQuery("");
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isSearchOpen]);
+
+  // Close on Escape
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsSearchOpen(false);
+    };
+    if (isSearchOpen) {
+      window.addEventListener("keydown", handleEscape);
+    }
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [isSearchOpen]);
+
+  // Check if link is active
+  const isActiveLink = (href: string) => {
+    if (href === "/" && location.pathname === "/") return true;
+    if (href === "/music" && location.pathname.startsWith("/music")) return true;
     return false;
   };
 
-  // Left side: Главная, Музыка, Биография
-  const leftLinks = navLinks.slice(0, 3);
-  // Right side: Даты концертов
-  const rightLinks = navLinks.slice(3);
+  // Handle search submit - navigate to search page
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setIsSearchOpen(false);
+    }
+  };
+
+  // Left side: Главная, Музыка
+  const leftLinks = navLinks.slice(0, 2);
+  // Right side: Биография, Даты концертов
+  const rightLinks = navLinks.slice(2);
 
   return (
     <>
@@ -103,10 +139,10 @@ export const Header = memo(function Header() {
 
             {/* Desktop: Navigation spanning full width with logo centered */}
             <nav className="hidden lg:flex items-center justify-between w-full" aria-label="Основная навигация">
-              {/* Left nav items: Главная, Музыка, Биография */}
+              {/* Left nav items: Главная, Музыка */}
               <div className="flex items-center gap-10">
                 {leftLinks.map((link) => {
-                  const isActive = isActiveLink(link.href, link.active);
+                  const isActive = isActiveLink(link.href);
                   const isExternal = link.external;
                   
                   if (isExternal) {
@@ -130,7 +166,7 @@ export const Header = memo(function Header() {
                       className={cn(
                         "text-sm font-medium transition-colors",
                         isActive 
-                          ? "text-[#2563eb] border-b-2 border-[#2563eb] pb-0.5" 
+                          ? "text-foreground border-b-2 border-foreground pb-0.5" 
                           : "text-foreground/70 hover:text-foreground"
                       )}
                     >
@@ -140,9 +176,9 @@ export const Header = memo(function Header() {
                 })}
               </div>
 
-              {/* Center Logo - BLACK */}
-              <a
-                href="https://vanyaaladin.com/"
+              {/* Center Logo */}
+              <Link
+                to="/"
                 aria-label="Главная"
                 className="absolute left-1/2 -translate-x-1/2 transition-all duration-300 hover:scale-105 hover:opacity-80"
               >
@@ -156,9 +192,9 @@ export const Header = memo(function Header() {
                   loading="eager"
                   fetchPriority="high"
                 />
-              </a>
+              </Link>
 
-              {/* Right nav items: Даты концертов, Контакты, Search */}
+              {/* Right nav items: Биография, Даты концертов, Search */}
               <div className="flex items-center gap-10">
                 {rightLinks.map((link) => (
                   <a
@@ -171,12 +207,6 @@ export const Header = memo(function Header() {
                     {link.label}
                   </a>
                 ))}
-                <a 
-                  href="https://vanyaaladin.com/contacts" 
-                  className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
-                >
-                  Контакты
-                </a>
                 <button
                   onClick={() => setIsSearchOpen(true)}
                   className="p-2 text-foreground/70 hover:text-foreground transition-colors"
@@ -188,9 +218,9 @@ export const Header = memo(function Header() {
               </div>
             </nav>
 
-            {/* Mobile: Centered Logo - BLACK */}
-            <a
-              href="https://vanyaaladin.com/"
+            {/* Mobile: Centered Logo */}
+            <Link
+              to="/"
               aria-label="Главная"
               className="lg:hidden transition-all duration-300 hover:scale-105 hover:opacity-80"
             >
@@ -204,7 +234,7 @@ export const Header = memo(function Header() {
                 loading="eager"
                 fetchPriority="high"
               />
-            </a>
+            </Link>
           </div>
         </div>
       </header>
@@ -212,8 +242,57 @@ export const Header = memo(function Header() {
       {/* Mobile menu */}
       <MobileMenu isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
       
-      {/* Search modal */}
-      <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+      {/* Compact Search Modal */}
+      <>
+        {/* Backdrop */}
+        <div
+          className={cn(
+            "fixed inset-0 z-[100] bg-foreground/20 backdrop-blur-sm transition-opacity duration-300",
+            isSearchOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+          )}
+          onClick={() => setIsSearchOpen(false)}
+        />
+
+        {/* Modal */}
+        <div
+          className={cn(
+            "fixed inset-x-0 top-0 z-[101] transition-all duration-300 ease-out",
+            isSearchOpen ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
+          )}
+        >
+          <div
+            className="w-full max-w-md mx-auto mt-20 mx-4 md:mx-auto bg-background rounded-2xl shadow-lg overflow-hidden border border-border"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <form onSubmit={handleSearchSubmit} className="flex items-center gap-3 p-4">
+              <Search className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Поиск..."
+                className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground outline-none text-base"
+              />
+              <button
+                type="button"
+                onClick={() => setIsSearchOpen(false)}
+                className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted"
+                aria-label="Закрыть поиск"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </form>
+
+            {/* Footer hint */}
+            <div className="px-4 py-2 border-t border-border bg-muted/30">
+              <p className="text-xs text-muted-foreground text-center">
+                <kbd className="px-1.5 py-0.5 bg-muted rounded text-foreground/70 text-[10px] font-mono">Enter</kbd> для поиска · <kbd className="px-1.5 py-0.5 bg-muted rounded text-foreground/70 text-[10px] font-mono">Esc</kbd> закрыть
+              </p>
+            </div>
+          </div>
+        </div>
+      </>
     </>
   );
 });
