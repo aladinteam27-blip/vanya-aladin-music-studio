@@ -16,6 +16,9 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   useLockBodyScroll(isOpen);
   useEscapeKey(onClose, isOpen);
 
+  // Dark theme detection
+  const isDarkTheme = location.pathname.startsWith("/music");
+
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
       onClose();
@@ -39,32 +42,58 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       aria-modal="true"
       aria-label="Меню навигации"
     >
-      {/* Backdrop - minimal blur like Gaga */}
-      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
+      {/* Backdrop - EXACT Lady Gaga style */}
+      <div 
+        className="absolute inset-0" 
+        style={{ 
+          background: isDarkTheme 
+            ? 'rgba(0, 0, 0, 0.8)' 
+            : 'rgba(255, 255, 255, 0.8)',
+          backdropFilter: 'blur(4px)'
+        }} 
+      />
 
-      {/* Menu panel - minimal like Gaga */}
+      {/* Menu panel - EXACT Lady Gaga minimal style */}
       <div
         ref={menuRef}
-        className={`absolute top-0 left-0 h-full w-[280px] bg-background border-r border-border/30 overflow-y-auto transition-transform duration-300 ease-out ${
+        className={`absolute top-0 left-0 h-full w-[240px] overflow-y-auto transition-transform duration-300 ease-out ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
+        style={{
+          background: isDarkTheme ? '#000' : '#fff',
+          borderRight: isDarkTheme ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)'
+        }}
       >
-        {/* Header - minimal */}
-        <div className="flex items-center justify-between p-5 border-b border-border/20">
-          <span className="text-sm font-medium text-foreground uppercase tracking-wider">Меню</span>
+        {/* Header - EXACT Lady Gaga */}
+        <div 
+          className="flex items-center justify-between px-4 py-4"
+          style={{
+            borderBottom: isDarkTheme ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)'
+          }}
+        >
+          <span 
+            className="text-[10px] font-medium uppercase tracking-[0.06em]"
+            style={{ 
+              color: isDarkTheme ? '#fff' : '#000',
+              fontFamily: 'Inter, Helvetica, Arial, sans-serif'
+            }}
+          >
+            Меню
+          </span>
           <button
             onClick={onClose}
-            className="p-1.5 -mr-1.5 text-foreground/50 hover:text-foreground transition-colors"
+            className="p-1 transition-opacity hover:opacity-60"
             type="button"
             aria-label="Закрыть"
+            style={{ color: isDarkTheme ? '#fff' : '#000' }}
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Navigation links - clean, minimal */}
-        <nav className="py-4" aria-label="Меню навигации">
-          <ul>
+        {/* Navigation links - EXACT Lady Gaga SideNavigation style */}
+        <nav className="py-3" aria-label="Меню навигации">
+          <ul className="grid gap-1">
             {navLinks.map((link) => {
               const isActive = isActiveLink(link.href);
               const isExternal = link.external;
@@ -76,21 +105,55 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                       href={link.href}
                       target="_blank"
                       rel={link.rel || "noopener"}
-                      className="block px-6 py-3 text-sm text-foreground/60 hover:text-foreground transition-colors"
+                      className="relative block px-4 py-2 text-xs transition-all duration-200"
+                      style={{ 
+                        color: isDarkTheme ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
+                        fontFamily: 'Inter, Helvetica, Arial, sans-serif'
+                      }}
                       onClick={onClose}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateX(8px)';
+                        e.currentTarget.style.color = isDarkTheme ? '#fff' : '#000';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateX(0)';
+                        e.currentTarget.style.color = isDarkTheme ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
+                      }}
                     >
                       {link.label}
                     </a>
                   ) : (
                     <Link
                       to={link.href}
-                      className={`block px-6 py-3 text-sm transition-colors ${
-                        isActive 
-                          ? "text-foreground font-medium" 
-                          : "text-foreground/60 hover:text-foreground"
-                      }`}
+                      className="relative block px-4 py-2 text-xs transition-all duration-200"
+                      style={{ 
+                        color: isActive 
+                          ? (isDarkTheme ? '#fff' : '#000') 
+                          : (isDarkTheme ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)'),
+                        transform: isActive ? 'translateX(8px)' : 'translateX(0)',
+                        fontFamily: 'Inter, Helvetica, Arial, sans-serif'
+                      }}
                       onClick={onClose}
+                      onMouseEnter={(e) => {
+                        if (!isActive) {
+                          e.currentTarget.style.transform = 'translateX(8px)';
+                          e.currentTarget.style.color = isDarkTheme ? '#fff' : '#000';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) {
+                          e.currentTarget.style.transform = 'translateX(0)';
+                          e.currentTarget.style.color = isDarkTheme ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
+                        }
+                      }}
                     >
+                      {/* Active border - EXACT Lady Gaga */}
+                      {isActive && (
+                        <span 
+                          className="absolute inset-y-0 -left-2 -right-2 rounded border pointer-events-none"
+                          style={{ borderColor: isDarkTheme ? '#fff' : '#000' }}
+                        />
+                      )}
                       {link.label}
                     </Link>
                   )}
@@ -101,11 +164,16 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
         </nav>
 
         {/* Divider */}
-        <div className="border-t border-border/20 mx-5" />
+        <div 
+          className="mx-4" 
+          style={{ 
+            borderTop: isDarkTheme ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)' 
+          }} 
+        />
 
-        {/* Social links - compact */}
-        <div className="p-5">
-          <div className="flex gap-3">
+        {/* Social links - minimal */}
+        <div className="p-4">
+          <div className="flex gap-2">
             {socialLinks.slice(0, 4).map((social) => (
               <a
                 key={social.name}
@@ -113,13 +181,16 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 target="_blank"
                 rel={social.rel || "noopener"}
                 aria-label={social.name}
-                className="flex items-center justify-center w-9 h-9 rounded-full bg-muted/50 hover:bg-muted transition-colors"
+                className="flex items-center justify-center w-8 h-8 rounded transition-opacity hover:opacity-60"
+                style={{ 
+                  background: isDarkTheme ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' 
+                }}
               >
                 <img 
                   src={social.icon} 
                   alt={social.name} 
-                  className="w-4 h-4" 
-                  style={{ filter: "brightness(0) opacity(0.4)" }}
+                  className="w-3.5 h-3.5" 
+                  style={{ filter: isDarkTheme ? 'brightness(0) invert(1) opacity(0.6)' : 'brightness(0) opacity(0.4)' }}
                   loading="lazy" 
                 />
               </a>
@@ -128,12 +199,15 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
         </div>
 
         {/* Footer - minimal */}
-        <div className="absolute bottom-0 left-0 right-0 p-5 text-xs text-muted-foreground/50">
+        <div 
+          className="absolute bottom-0 left-0 right-0 px-4 py-3 text-[10px]"
+          style={{ color: isDarkTheme ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)' }}
+        >
           <a
             href="https://vanyaaladin.com/policy"
             target="_blank"
             rel="noopener"
-            className="hover:text-foreground/60 transition-colors"
+            className="hover:opacity-80 transition-opacity"
           >
             Политика
           </a>

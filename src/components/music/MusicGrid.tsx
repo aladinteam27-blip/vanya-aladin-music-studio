@@ -46,23 +46,33 @@ export const MusicGrid = memo(function MusicGrid({
     <section className="py-12 md:py-20 bg-background">
       <div className="container mx-auto px-4 md:px-6 lg:px-8 max-w-[1660px]">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8 max-w-4xl mx-auto">
           <h2 className="text-xl md:text-2xl font-semibold text-foreground">
             Вся музыка
           </h2>
 
-          {/* View Toggle */}
-          <div className="view-toggle">
+          {/* View Toggle - DARK THEME aware */}
+          <div className="inline-flex items-center justify-center rounded-full bg-muted p-1">
             <button
               onClick={() => setViewMode('grid')}
-              className={cn('view-toggle-btn', viewMode === 'grid' && 'active')}
+              className={cn(
+                'px-4 py-2 rounded-full text-sm font-medium transition-all',
+                viewMode === 'grid' 
+                  ? 'bg-foreground text-background' 
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
               aria-label="Вид сетка"
             >
               <LayoutGrid size={16} />
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={cn('view-toggle-btn', viewMode === 'list' && 'active')}
+              className={cn(
+                'px-4 py-2 rounded-full text-sm font-medium transition-all',
+                viewMode === 'list' 
+                  ? 'bg-foreground text-background' 
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
               aria-label="Вид список"
             >
               <List size={16} />

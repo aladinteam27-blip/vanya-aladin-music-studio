@@ -28,22 +28,26 @@ const springConfig = { stiffness: 400, mass: 0.1, damping: 20 };
 const hoverSpring = { stiffness: 100, mass: 0.1, damping: 20 };
 
 // CANONICAL CSS variables - EXACT from _root_gjbqq_19 Lady Gaga source
+// Desktop symmetry: nextSlideColumnOffset: 4, nextSlideRowOffset: 2 for diagonal symmetry
+// Mobile: nextSlideColumnOffset: 3, nextSlideRowOffset: 2 
 const CONFIG = {
   desktop: {
     slideGridSize: 4,
-    nextSlideColumnOffset: 4,
-    nextSlideRowOffset: 2,
+    nextSlideColumnOffset: 4, // SYMMETRIC diagonal - same offset top-left and bottom-right
+    nextSlideRowOffset: 2,    // SYMMETRIC diagonal
     slideGap: 48,
     canvasHeight: "100vh",
-    getSlideSize: (vw: number, vh: number) => Math.max(vw * 0.3, vh - vh * 0.3),
+    // EXACT from Lady Gaga: slideSize based on viewport
+    getSlideSize: (vw: number, vh: number) => Math.max(vw * 0.3, vh * 0.65),
   },
   mobile: {
     slideGridSize: 4,
-    nextSlideColumnOffset: 3,
+    nextSlideColumnOffset: 3, // Tighter on mobile
     nextSlideRowOffset: 2,
     slideGap: 28,
     canvasHeight: "90svh",
-    getSlideSize: (vw: number, vh: number) => Math.min(vw - 80, vh * 0.9 - vh * 0.2),
+    // Mobile: smaller to fit screen
+    getSlideSize: (vw: number, vh: number) => Math.min(vw - 80, vh * 0.55),
   },
 };
 
@@ -317,7 +321,7 @@ export const CoverCarousel = memo(function CoverCarousel({
         height: config.canvasHeight,
       }}
     >
-      {/* Left gradient mask - CANONICAL _root_gjbqq_19:before - LIGHT THEME */}
+      {/* Left gradient mask - CANONICAL _root_gjbqq_19:before - DARK THEME */}
       <div
         className="absolute top-0 left-0 h-full z-10 pointer-events-none"
         style={{
@@ -326,6 +330,18 @@ export const CoverCarousel = memo(function CoverCarousel({
           background: isMobile
             ? "linear-gradient(to right, hsl(var(--background)), hsl(var(--background) / 0.3) 40%, transparent)"
             : "linear-gradient(to right, hsl(var(--background)), hsl(var(--background)) 20%, hsl(var(--background) / 0.5) 80%, transparent)",
+        }}
+      />
+
+      {/* Right gradient mask - for symmetry */}
+      <div
+        className="absolute top-0 right-0 h-full z-10 pointer-events-none"
+        style={{
+          width: nonActiveSpaceW,
+          display: "inline-block",
+          background: isMobile
+            ? "linear-gradient(to left, hsl(var(--background)), hsl(var(--background) / 0.3) 40%, transparent)"
+            : "linear-gradient(to left, hsl(var(--background)), hsl(var(--background)) 20%, hsl(var(--background) / 0.5) 80%, transparent)",
         }}
       />
 
@@ -658,13 +674,13 @@ const CanonicalSlide = memo(function CanonicalSlide({
   const rotateY = isCenter ? rotateYFromHover : rotateYFromVelocity;
   const smoothRotateY = useSpring(rotateY, hoverSpring);
 
-  // CANONICAL: Inset shadow - EXACT from source with LIGHT THEME adaptation
+  // CANONICAL: Inset shadow - EXACT from source for DARK THEME
   // Source: radial-gradient(farthest-corner at 75% 75%...) for depth corner effect
   const insetFromVelocity = useTransform(
     scrollVelocity,
     [-velocityRange, 0, velocityRange],
-    // LIGHT THEME: Visible but soft - not black
-    [isPrev ? 0.2 : 0, isPrev ? (isMobile ? 0.35 : 0.45) : 0, isPrev ? 0.2 : 0]
+    // DARK THEME: More visible shadows
+    [isPrev ? 0.3 : 0, isPrev ? (isMobile ? 0.5 : 0.6) : 0, isPrev ? 0.3 : 0]
   );
   const smoothInsetOpacity = useSpring(insetFromVelocity, hoverSpring);
 
@@ -730,34 +746,34 @@ const CanonicalSlide = memo(function CanonicalSlide({
           }}
         />
 
-        {/* Drop shadow - LIGHT THEME: soft, subtle, creates depth */}
+        {/* Drop shadow - DARK THEME: deeper, more visible */}
         {!isCenter && (
           <motion.div
             className="absolute top-0 left-0 w-full h-full -z-10 pointer-events-none rounded"
             initial={{ x: 0, z: -150 }}
             style={{
               scale: 1.2, // EXACT from source
-              // LIGHT THEME: Soft gray instead of black
-              background: "hsl(var(--foreground) / 0.08)",
-              filter: "blur(12px)", // EXACT from source
+              // DARK THEME: Darker shadow for depth
+              background: "hsl(0 0% 0% / 0.4)",
+              filter: "blur(16px)", // Slightly more blur for dark theme
               x: smoothShadowX,
               z: -150,
             }}
           />
         )}
 
-        {/* Inset shadow - CANONICAL corner gradient, LIGHT THEME colors */}
+        {/* Inset shadow - CANONICAL corner gradient, DARK THEME colors */}
         {!isCenter && (
           <motion.div
             className="absolute top-0 right-0 w-full h-full z-10 pointer-events-none rounded"
             style={{
               // CANONICAL: radial-gradient at corner + linear-gradient for depth
-              // LIGHT THEME: Using soft warm gray instead of black
+              // DARK THEME: Using black overlay for depth
               background: isPrev 
-                ? `radial-gradient(farthest-corner at 75% 75%, hsl(var(--foreground) / 0.15) 0%, hsl(var(--foreground) / 0.1) 10%, transparent 100%), 
-                   linear-gradient(to top, hsl(var(--foreground) / 0.12) 0%, hsl(var(--foreground) / 0.08) 30%, transparent 60%)`
-                : `radial-gradient(farthest-corner at 25% 25%, hsl(var(--foreground) / 0.15) 0%, hsl(var(--foreground) / 0.1) 10%, transparent 100%), 
-                   linear-gradient(to bottom, hsl(var(--foreground) / 0.12) 0%, hsl(var(--foreground) / 0.08) 30%, transparent 60%)`,
+                ? `radial-gradient(farthest-corner at 75% 75%, hsl(0 0% 0% / 0.4) 0%, hsl(0 0% 0% / 0.25) 10%, transparent 100%), 
+                   linear-gradient(to top, hsl(0 0% 0% / 0.35) 0%, hsl(0 0% 0% / 0.2) 30%, transparent 60%)`
+                : `radial-gradient(farthest-corner at 25% 25%, hsl(0 0% 0% / 0.4) 0%, hsl(0 0% 0% / 0.25) 10%, transparent 100%), 
+                   linear-gradient(to bottom, hsl(0 0% 0% / 0.35) 0%, hsl(0 0% 0% / 0.2) 30%, transparent 60%)`,
               backgroundRepeat: "no-repeat",
               opacity: smoothInsetOpacity,
             }}
