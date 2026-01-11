@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
 import { heroImages, latestRelease } from "@/data/siteData";
-import { Play, Bell } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import CookieBanner from "@/components/home/CookieBanner";
 import ContactFab from "@/components/home/ContactFab";
+import FooterNavButton from "@/components/home/FooterNavButton";
 
 export default function HomePage() {
   const [isHovered, setIsHovered] = useState(false);
@@ -22,10 +23,10 @@ export default function HomePage() {
       <Header />
 
       <main id="main">
-        {/* Hero section */}
+        {/* Hero section - fullscreen */}
         <section
           ref={heroRef}
-          className="relative min-h-screen w-full overflow-hidden bg-muted"
+          className="relative h-screen w-full overflow-hidden bg-muted"
           aria-label="Главный баннер"
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
@@ -66,82 +67,88 @@ export default function HomePage() {
             aria-hidden="true"
           />
 
-          {/* Release Card Container - centered at bottom */}
-          <div className="absolute bottom-16 md:bottom-20 left-1/2 -translate-x-1/2 w-full max-w-md px-4">
-            <div
-              className={`transition-all duration-700 ${
-                isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-              }`}
+          {/* Desktop: Release Card - positioned bottom right like Gaga */}
+          <div className="hidden md:block absolute bottom-6 right-6 max-w-sm">
+            <Link
+              to="/music/latest"
+              className={`
+                block bg-background/90 backdrop-blur-md rounded-2xl p-4 
+                shadow-lg border border-border/50 
+                transition-all duration-500 hover:shadow-xl hover:scale-[1.02]
+                ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}
+              `}
             >
-              {/* Release card with glass effect */}
-              <div className="bg-background/90 backdrop-blur-md rounded-2xl p-4 md:p-5 shadow-lg relative border border-border/50">
-                {/* Badge at top right corner of card */}
-                <span className="absolute top-3 right-4 text-[10px] font-semibold text-primary uppercase tracking-wider">
+              <div className="flex items-center gap-4">
+                {/* Album cover */}
+                <div className="relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden shadow-md">
+                  <img
+                    src={latestRelease.coverImage}
+                    alt={latestRelease.title}
+                    className="w-full h-full object-cover"
+                    loading="eager"
+                  />
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    {latestRelease.year} • {latestRelease.type}
+                  </span>
+                  <h2 className="text-base font-bold text-foreground truncate mt-0.5">
+                    {latestRelease.title}
+                  </h2>
+                </div>
+
+                {/* Arrow */}
+                <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+              </div>
+            </Link>
+          </div>
+
+          {/* Mobile: Full-width release banner at bottom - clickable, no buttons */}
+          <Link
+            to="/music/latest"
+            className={`
+              md:hidden absolute bottom-0 left-0 right-0
+              bg-background/95 backdrop-blur-md p-4
+              border-t border-border/30
+              transition-all duration-500
+              ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}
+            `}
+          >
+            <div className="flex items-center gap-3">
+              {/* Album cover */}
+              <div className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden shadow-md">
+                <img
+                  src={latestRelease.coverImage}
+                  alt={latestRelease.title}
+                  className="w-full h-full object-cover"
+                  loading="eager"
+                />
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                   {latestRelease.year} • {latestRelease.type}
                 </span>
-
-                <div className="flex items-center gap-4">
-                  {/* Album cover */}
-                  <div className="relative flex-shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-lg overflow-hidden shadow-md group">
-                    <img
-                      src={latestRelease.coverImage}
-                      alt={latestRelease.title}
-                      width={80}
-                      height={80}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      loading="eager"
-                      fetchPriority="high"
-                    />
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    {/* Title */}
-                    <h2 className="text-lg md:text-xl font-bold text-foreground mb-2 truncate">
-                      {latestRelease.title}
-                    </h2>
-
-                    {/* Action buttons */}
-                    <div className="flex gap-2">
-                      <a
-                        href={latestRelease.presaveUrl}
-                        target="_blank"
-                        rel="noopener"
-                        className="inline-flex items-center justify-center gap-1.5 text-xs py-2 px-3 bg-foreground text-background rounded-lg font-medium hover:opacity-90 transition-opacity"
-                      >
-                        <Bell className="w-3.5 h-3.5" />
-                        <span>Пресейв</span>
-                      </a>
-                      <a
-                        href={latestRelease.listenUrl}
-                        target="_blank"
-                        rel="noopener"
-                        className="inline-flex items-center justify-center gap-1.5 text-xs py-2 px-3 bg-muted text-foreground rounded-lg font-medium hover:bg-muted/80 transition-colors"
-                      >
-                        <Play className="w-3.5 h-3.5" />
-                        <span>Слушать</span>
-                      </a>
-                    </div>
-                  </div>
-                </div>
+                <h2 className="text-sm font-bold text-foreground truncate mt-0.5">
+                  {latestRelease.title}
+                </h2>
               </div>
-            </div>
-          </div>
 
-          {/* Scroll indicator */}
-          <div
-            className={`absolute bottom-4 left-1/2 -translate-x-1/2 transition-all duration-700 delay-500 ${
-              isVisible ? "opacity-60" : "opacity-0"
-            }`}
-          >
-            <div className="w-6 h-10 border-2 border-foreground/30 rounded-full flex justify-center pt-2">
-              <div className="w-1 h-2 bg-foreground/40 rounded-full animate-pulse" />
+              {/* Arrow */}
+              <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
             </div>
-          </div>
+          </Link>
         </section>
       </main>
 
-      <Footer />
+      {/* Desktop: Footer hidden, replaced by nav button */}
+      <FooterNavButton />
+      
+      {/* Mobile: No footer at all, only banner above */}
+      
       <ContactFab />
       <CookieBanner />
     </div>

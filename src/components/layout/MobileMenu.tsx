@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { X } from "lucide-react";
-import { navLinks, socialLinks, contactInfo } from "@/data/siteData";
+import { navLinks, socialLinks } from "@/data/siteData";
 import { useLockBodyScroll, useEscapeKey } from "@/hooks/useBodyLock";
 
 interface MobileMenuProps {
@@ -11,7 +11,6 @@ interface MobileMenuProps {
 
 export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
-  const currentYear = new Date().getFullYear();
   const location = useLocation();
 
   useLockBodyScroll(isOpen);
@@ -23,10 +22,10 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     }
   };
 
-  // Check if link is active - "Музыка" active on /music
+  // Check if link is active
   const isActiveLink = (href: string) => {
-    if (href === "/music" && (location.pathname === "/music" || location.pathname.startsWith("/music"))) return true;
-    return false;
+    if (href === "/") return location.pathname === "/";
+    return location.pathname.startsWith(href);
   };
 
   return (
@@ -40,22 +39,22 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       aria-modal="true"
       aria-label="Меню навигации"
     >
-      {/* Backdrop - light blur */}
-      <div className="absolute inset-0 bg-foreground/10 backdrop-blur-sm" />
+      {/* Backdrop - minimal blur like Gaga */}
+      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
 
-      {/* Menu panel */}
+      {/* Menu panel - minimal like Gaga */}
       <div
         ref={menuRef}
-        className={`absolute top-0 left-0 h-full w-[85%] max-w-[380px] bg-background border-r border-border shadow-lg overflow-y-auto transition-transform duration-300 ease-out ${
+        className={`absolute top-0 left-0 h-full w-[280px] bg-background border-r border-border/30 overflow-y-auto transition-transform duration-300 ease-out ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between p-4 bg-background/95 backdrop-blur-sm border-b border-border">
-          <span className="text-lg font-semibold text-foreground">Меню</span>
+        {/* Header - minimal */}
+        <div className="flex items-center justify-between p-5 border-b border-border/20">
+          <span className="text-sm font-medium text-foreground uppercase tracking-wider">Меню</span>
           <button
             onClick={onClose}
-            className="p-2 -mr-2 text-foreground/60 hover:text-foreground transition-colors rounded-lg hover:bg-muted"
+            className="p-1.5 -mr-1.5 text-foreground/50 hover:text-foreground transition-colors"
             type="button"
             aria-label="Закрыть"
           >
@@ -63,21 +62,21 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
           </button>
         </div>
 
-        {/* Navigation links */}
-        <nav className="p-4" aria-label="Меню навигации">
-          <ul className="space-y-1">
-            {navLinks.map((link, index) => {
+        {/* Navigation links - clean, minimal */}
+        <nav className="py-4" aria-label="Меню навигации">
+          <ul>
+            {navLinks.map((link) => {
               const isActive = isActiveLink(link.href);
               const isExternal = link.external;
               
               return (
-                <li key={link.href} style={{ animationDelay: `${index * 50}ms` }}>
+                <li key={link.href}>
                   {isExternal ? (
                     <a
                       href={link.href}
                       target="_blank"
                       rel={link.rel || "noopener"}
-                      className="block px-4 py-3 rounded-xl text-foreground/80 hover:text-foreground hover:bg-muted transition-all duration-200"
+                      className="block px-6 py-3 text-sm text-foreground/60 hover:text-foreground transition-colors"
                       onClick={onClose}
                     >
                       {link.label}
@@ -85,10 +84,10 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                   ) : (
                     <Link
                       to={link.href}
-                      className={`block px-4 py-3 rounded-xl transition-all duration-200 ${
+                      className={`block px-6 py-3 text-sm transition-colors ${
                         isActive 
-                          ? "bg-blue-50 text-[#2563eb] font-medium border-l-2 border-[#2563eb]" 
-                          : "text-foreground/80 hover:text-foreground hover:bg-muted"
+                          ? "text-foreground font-medium" 
+                          : "text-foreground/60 hover:text-foreground"
                       }`}
                       onClick={onClose}
                     >
@@ -98,58 +97,29 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 </li>
               );
             })}
-            <li style={{ animationDelay: `${navLinks.length * 50}ms` }}>
-              <a
-                href="https://vanyaaladin.com/contacts"
-                target="_blank"
-                rel="noopener"
-                className="block px-4 py-3 rounded-xl text-foreground/80 hover:text-foreground hover:bg-muted transition-all duration-200"
-                onClick={onClose}
-              >
-                Контакты
-              </a>
-            </li>
           </ul>
         </nav>
 
-        {/* Contact info */}
-        <div className="px-4 py-6 border-t border-border">
-          <h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-4">Контакты</h3>
-          <div className="space-y-2 text-sm text-foreground/70">
-            <p>
-              Концерты:{" "}
-              <a href={`tel:${contactInfo.booking.phone.replace(/\s/g, "")}`} className="text-foreground hover:text-primary transition-colors">
-                {contactInfo.booking.phone}
-              </a>{" "}
-              — {contactInfo.booking.name}
-            </p>
-            <p>
-              PR:{" "}
-              <a href={`mailto:${contactInfo.pr.email}`} className="text-foreground hover:text-primary transition-colors">
-                {contactInfo.pr.email}
-              </a>
-            </p>
-          </div>
-        </div>
+        {/* Divider */}
+        <div className="border-t border-border/20 mx-5" />
 
-        {/* Social links */}
-        <div className="px-4 py-6 border-t border-border">
-          <h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-4">Социальные сети</h3>
-          <div className="flex flex-wrap gap-3">
-            {socialLinks.map((social) => (
+        {/* Social links - compact */}
+        <div className="p-5">
+          <div className="flex gap-3">
+            {socialLinks.slice(0, 4).map((social) => (
               <a
                 key={social.name}
                 href={social.url}
                 target="_blank"
                 rel={social.rel || "noopener"}
                 aria-label={social.name}
-                className="flex items-center justify-center w-10 h-10 rounded-xl bg-muted hover:bg-primary/10 transition-all duration-200 hover:scale-110"
+                className="flex items-center justify-center w-9 h-9 rounded-full bg-muted/50 hover:bg-muted transition-colors"
               >
                 <img 
                   src={social.icon} 
                   alt={social.name} 
-                  className="w-5 h-5" 
-                  style={{ filter: "brightness(0) opacity(0.6)" }}
+                  className="w-4 h-4" 
+                  style={{ filter: "brightness(0) opacity(0.4)" }}
                   loading="lazy" 
                 />
               </a>
@@ -157,19 +127,16 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-4 py-6 border-t border-border">
-          <p className="text-xs text-muted-foreground">
-            © {currentYear} Ваня Аладин ·{" "}
-            <a
-              href="https://vanyaaladin.com/policy"
-              target="_blank"
-              rel="noopener"
-              className="hover:text-foreground transition-colors"
-            >
-              Политика конфиденциальности
-            </a>
-          </p>
+        {/* Footer - minimal */}
+        <div className="absolute bottom-0 left-0 right-0 p-5 text-xs text-muted-foreground/50">
+          <a
+            href="https://vanyaaladin.com/policy"
+            target="_blank"
+            rel="noopener"
+            className="hover:text-foreground/60 transition-colors"
+          >
+            Политика
+          </a>
         </div>
       </div>
     </div>
