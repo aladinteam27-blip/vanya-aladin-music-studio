@@ -16,6 +16,9 @@ export const Header = memo(function Header() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Check if we're on dark theme page (music)
+  const isDarkTheme = location.pathname.startsWith("/music");
+
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
@@ -81,6 +84,9 @@ export const Header = memo(function Header() {
   // Right side: Биография, Даты концертов
   const rightLinks = navLinks.slice(2);
 
+  // Logo filter: invert for dark theme
+  const logoFilter = isDarkTheme ? 'brightness(0) invert(1)' : 'brightness(0)';
+
   return (
     <>
       {/* Skip to content link for accessibility */}
@@ -107,7 +113,9 @@ export const Header = memo(function Header() {
             isScrolled ? "opacity-0" : "opacity-100"
           )}
           style={{
-            background: "linear-gradient(180deg, hsla(0,0%,100%,0.9) 0%, hsla(0,0%,100%,0) 100%)"
+            background: isDarkTheme
+              ? "linear-gradient(180deg, hsla(0,0%,0%,0.9) 0%, hsla(0,0%,0%,0) 100%)"
+              : "linear-gradient(180deg, hsla(0,0%,100%,0.9) 0%, hsla(0,0%,100%,0) 100%)"
           }}
           aria-hidden="true"
         />
@@ -188,7 +196,7 @@ export const Header = memo(function Header() {
                   width={160}
                   height={64}
                   className="h-12 lg:h-14 w-auto object-contain"
-                  style={{ filter: 'brightness(0)' }}
+                  style={{ filter: logoFilter }}
                   loading="eager"
                   fetchPriority="high"
                 />
@@ -230,7 +238,7 @@ export const Header = memo(function Header() {
                 width={120}
                 height={48}
                 className="h-9 w-auto object-contain"
-                style={{ filter: 'brightness(0)' }}
+                style={{ filter: logoFilter }}
                 loading="eager"
                 fetchPriority="high"
               />

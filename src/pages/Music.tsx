@@ -20,6 +20,14 @@ const MusicPage = () => {
     toggle
   } = useAudioPlayer();
 
+  // Set dark theme on mount, reset on unmount
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    return () => {
+      document.documentElement.removeAttribute('data-theme');
+    };
+  }, []);
+
   // When track changes via carousel AND player is playing, switch to new track (don't stop)
   // Like Lady Gaga - player continues playing the new track when swiping
   const handleIndexChange = useCallback((index: number) => {
