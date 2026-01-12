@@ -49,7 +49,8 @@ export const MiniPlayer = memo(function MiniPlayer({
     };
   }, [showFrame]);
 
-  // CANONICAL: Stop BEFORE footer with visual gap - player doesn't overlap footer
+  // CANONICAL: Stop MUCH EARLIER before footer - leave more background visible
+  // Per requirements: player should not reach footer, leave more space
   useEffect(() => {
     const handleScroll = () => {
       const footer = document.querySelector('footer');
@@ -57,7 +58,9 @@ export const MiniPlayer = memo(function MiniPlayer({
       if (!footer || !player) return;
 
       const footerRect = footer.getBoundingClientRect();
-      const playerHeight = player.offsetHeight + 80; // 80px = larger gap before footer
+      // INCREASED gap: 160px before footer on desktop, 120px on mobile
+      const gap = window.innerWidth >= 768 ? 160 : 120;
+      const playerHeight = player.offsetHeight + gap;
       
       // If footer is visible and close to player position - stop earlier
       if (footerRect.top < window.innerHeight - playerHeight) {
@@ -100,10 +103,10 @@ export const MiniPlayer = memo(function MiniPlayer({
         className={cn(
           'flex items-center gap-2.5 px-4 py-2.5',
           'bg-foreground text-background rounded-full',
-          // LIGHT THEME: Minimal, soft shadow - not dirty
-          'shadow-[0_4px_16px_rgba(0,0,0,0.12)]',
+          // DARK THEME: Soft shadow
+          'shadow-[0_4px_16px_rgba(0,0,0,0.4)]',
           'transition-all duration-200',
-          'hover:shadow-[0_6px_20px_rgba(0,0,0,0.18)]',
+          'hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)]',
           'active:scale-95',
           showFrame && 'ring-2 ring-[hsl(var(--brand-blue))] ring-offset-2 ring-offset-background'
         )}

@@ -27,27 +27,28 @@ interface CoverCarouselProps {
 const springConfig = { stiffness: 400, mass: 0.1, damping: 20 };
 const hoverSpring = { stiffness: 100, mass: 0.1, damping: 20 };
 
-// CANONICAL CSS variables - EXACT from _root_gjbqq_19 Lady Gaga source
-// Desktop symmetry: nextSlideColumnOffset: 4, nextSlideRowOffset: 2 for diagonal symmetry
-// Mobile: nextSlideColumnOffset: 3, nextSlideRowOffset: 2 
+// CANONICAL CSS variables - EXACT from Lady Gaga source (_locale).music-BDwhpSHd.css
+// IMPORTANT: Desktop = cards NOT overlapping (symmetric), Mobile = cards overlapping
 const CONFIG = {
+  // DESKTOP: Cards symmetric, NOT overlapping - nextSlideColumnOffset: 4
   desktop: {
     slideGridSize: 4,
-    nextSlideColumnOffset: 4, // SYMMETRIC diagonal - same offset top-left and bottom-right
-    nextSlideRowOffset: 2,    // SYMMETRIC diagonal
+    nextSlideColumnOffset: 4, // SYMMETRIC - cards don't overlap
+    nextSlideRowOffset: 2,
     slideGap: 48,
     canvasHeight: "100vh",
-    // EXACT from Lady Gaga: slideSize based on viewport
+    // EXACT from Lady Gaga: max(30vw, calc(var(--config-canvas-height) - 30vh))
     getSlideSize: (vw: number, vh: number) => Math.max(vw * 0.3, vh * 0.65),
   },
+  // MOBILE: Cards overlapping - nextSlideColumnOffset: 3
   mobile: {
     slideGridSize: 4,
-    nextSlideColumnOffset: 3, // Tighter on mobile
+    nextSlideColumnOffset: 3, // OVERLAPPING - cards stack
     nextSlideRowOffset: 2,
     slideGap: 28,
     canvasHeight: "90svh",
-    // Mobile: smaller to fit screen
-    getSlideSize: (vw: number, vh: number) => Math.min(vw - 80, vh * 0.55),
+    // EXACT from Lady Gaga: min(calc(100vw - 80px), calc(var(--config-canvas-height) - 20vh))
+    getSlideSize: (vw: number, vh: number) => Math.min(vw - 80, vh * 0.7),
   },
 };
 
@@ -111,7 +112,7 @@ export const CoverCarousel = memo(function CoverCarousel({
   const smoothProgress = useSpring(scrollXProgress, springConfig);
   const smoothVelocity = useSpring(scrollVelocity, springConfig);
 
-  // CANONICAL: Hover tilt values for center cover (Desktop only)
+  // CANONICAL: Hover tilt values for ALL covers (not just center)
   const hoverTiltX = useMotionValue(0);
   const hoverTiltY = useMotionValue(0);
 
@@ -184,7 +185,7 @@ export const CoverCarousel = memo(function CoverCarousel({
     return () => orch.removeEventListener("scroll", handleScroll);
   }, [scrollX, scrollXProgress]);
 
-  // Desktop: Mouse move for hover tilt - CANONICAL behavior
+  // Desktop: Mouse move for hover tilt - CANONICAL behavior for ALL cards
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
       if (isMobile || isDragging) return;
@@ -321,27 +322,27 @@ export const CoverCarousel = memo(function CoverCarousel({
         height: config.canvasHeight,
       }}
     >
-      {/* Left gradient mask - CANONICAL _root_gjbqq_19:before - DARK THEME */}
+      {/* Left gradient mask - CANONICAL from Lady Gaga: black gradient */}
       <div
         className="absolute top-0 left-0 h-full z-10 pointer-events-none"
         style={{
           width: nonActiveSpaceW,
           display: "inline-block",
+          // EXACT from Lady Gaga CSS: linear-gradient(to right,#000,#0003 40%,#0000) for mobile
+          // linear-gradient(to right,#000,#000 20%,#0000004d 80%,#0000) for desktop
           background: isMobile
-            ? "linear-gradient(to right, hsl(var(--background)), hsl(var(--background) / 0.3) 40%, transparent)"
-            : "linear-gradient(to right, hsl(var(--background)), hsl(var(--background)) 20%, hsl(var(--background) / 0.5) 80%, transparent)",
+            ? "linear-gradient(to right, #000, rgba(0,0,0,0.2) 40%, transparent)"
+            : "linear-gradient(to right, #000, #000 20%, rgba(0,0,0,0.3) 80%, transparent)",
         }}
       />
 
-      {/* Right gradient mask - for symmetry */}
+      {/* Right gradient - subtle for symmetry */}
       <div
         className="absolute top-0 right-0 h-full z-10 pointer-events-none"
         style={{
-          width: nonActiveSpaceW,
+          width: nonActiveSpaceW * 0.5,
           display: "inline-block",
-          background: isMobile
-            ? "linear-gradient(to left, hsl(var(--background)), hsl(var(--background) / 0.3) 40%, transparent)"
-            : "linear-gradient(to left, hsl(var(--background)), hsl(var(--background)) 20%, hsl(var(--background) / 0.5) 80%, transparent)",
+          background: "linear-gradient(to left, rgba(0,0,0,0.15), transparent)",
         }}
       />
 
@@ -593,12 +594,12 @@ const ProgressIndicator = memo(function ProgressIndicator({
       className="relative w-full h-8"
       style={{ "--ci-dynamic-number-of-slides": numberOfSlides } as React.CSSProperties}
     >
-      {/* Track line */}
+      {/* Track line - EXACT from Lady Gaga: #ffffff4d */}
       <div
         className="absolute top-1/2 -translate-y-1/2 h-[1px] left-0 w-full"
-        style={{ background: "hsl(var(--foreground) / 0.3)" }}
+        style={{ background: "rgba(255,255,255,0.3)" }}
       />
-      {/* Thumb - CANONICAL with dragControls */}
+      {/* Thumb - CANONICAL with dragControls, white */}
       <motion.div
         initial="initial"
         whileHover="hover"
@@ -611,7 +612,7 @@ const ProgressIndicator = memo(function ProgressIndicator({
         variants={indicatorVariants}
         className="absolute top-[calc(50%-4px)] left-0 h-2 rounded-full cursor-grab active:cursor-grabbing"
         style={{
-          background: "hsl(var(--foreground))",
+          background: "#fff",
           width: `calc(100% / ${numberOfSlides})`,
           ...(!isDragging && { x: thumbX }),
         }}
@@ -657,12 +658,12 @@ const CanonicalSlide = memo(function CanonicalSlide({
   const isPrev = activeSlideIndex > slideIndex;
   const isNext = activeSlideIndex < slideIndex;
 
-  // CANONICAL: rotateX from hover - only for center slide (pointer-driven tilt)
+  // CANONICAL: rotateX from hover - soft cursor-based tilt for center
   const rotateXFromHover = useTransform(hoverTiltY, [-0.5, 0.5], isCenter ? [8, -8] : [0, 0]);
   const smoothRotateX = useSpring(rotateXFromHover, hoverSpring);
 
   // CANONICAL: rotateY - ALL cards rotate from velocity, center ALSO from hover
-  // Fix: First card (and all cards) must rotate - use velocity for ALL non-center
+  // FIX: First card and ALL cards must rotate from velocity when not center
   const rotateYFromHover = useTransform(hoverTiltX, [-0.5, 0.5], isCenter ? [-8, 8] : [0, 0]);
   const rotateYFromVelocity = useTransform(
     scrollVelocity,
@@ -670,17 +671,19 @@ const CanonicalSlide = memo(function CanonicalSlide({
     [-35, 0, -35]
   );
   
-  // CANONICAL: Center uses hover, ALL others use velocity (including first card)
+  // CANONICAL: Center uses hover, ALL others (including first card!) use velocity
   const rotateY = isCenter ? rotateYFromHover : rotateYFromVelocity;
   const smoothRotateY = useSpring(rotateY, hoverSpring);
 
-  // CANONICAL: Inset shadow - EXACT from source for DARK THEME
+  // CANONICAL: Inset shadow - EXACT from Lady Gaga source for DARK THEME
   // Source: radial-gradient(farthest-corner at 75% 75%...) for depth corner effect
+  // isPrev (upper-left card): shadow at 75% 75% (bottom-right corner)
+  // isNext (lower-right card): shadow at 25% 25% (top-left corner)
   const insetFromVelocity = useTransform(
     scrollVelocity,
     [-velocityRange, 0, velocityRange],
-    // DARK THEME: More visible shadows
-    [isPrev ? 0.3 : 0, isPrev ? (isMobile ? 0.5 : 0.6) : 0, isPrev ? 0.3 : 0]
+    // EXACT from Lady Gaga: opacity 0.5-1 for visible cards
+    [isPrev ? 0.5 : 0, isPrev ? (isMobile ? 0.8 : 1) : 0, isPrev ? 0.5 : 0]
   );
   const smoothInsetOpacity = useSpring(insetFromVelocity, hoverSpring);
 
@@ -746,38 +749,41 @@ const CanonicalSlide = memo(function CanonicalSlide({
           }}
         />
 
-        {/* Drop shadow - DARK THEME: deeper, more visible */}
+        {/* Drop shadow - CANONICAL _showcaseSlideInnerDropShadow_gjbqq_177 */}
+        {/* DARK THEME: Only behind non-center cards, soft blur */}
         {!isCenter && (
           <motion.div
             className="absolute top-0 left-0 w-full h-full -z-10 pointer-events-none rounded"
             initial={{ x: 0, z: -150 }}
             style={{
               scale: 1.2, // EXACT from source
-              // DARK THEME: Darker shadow for depth
-              background: "hsl(0 0% 0% / 0.4)",
-              filter: "blur(16px)", // Slightly more blur for dark theme
+              // EXACT from Lady Gaga: #0009 = rgba(0,0,0,0.6)
+              background: "rgba(0,0,0,0.6)",
+              filter: "blur(12px)", // EXACT from source
               x: smoothShadowX,
               z: -150,
             }}
           />
         )}
 
-        {/* Inset shadow - CANONICAL corner gradient, DARK THEME colors */}
+        {/* Inset shadow - CANONICAL _showcaseSlideInnerInsetShadow_gjbqq_188 */}
+        {/* EXACT from Lady Gaga source: corner radial gradient + linear gradient */}
         {!isCenter && (
           <motion.div
             className="absolute top-0 right-0 w-full h-full z-10 pointer-events-none rounded"
             style={{
-              // CANONICAL: radial-gradient at corner + linear-gradient for depth
-              // DARK THEME: Using black overlay for depth
+              // EXACT from Lady Gaga CSS:
+              // isPrev: --target-corner: 75% 75%; --target-vertical-side: top (upper-left card = shadow bottom-right)
+              // isNext: --target-corner: 25% 25%; --target-vertical-side: bottom (lower-right card = shadow top-left)
               background: isPrev 
-                ? `radial-gradient(farthest-corner at 75% 75%, hsl(0 0% 0% / 0.4) 0%, hsl(0 0% 0% / 0.25) 10%, transparent 100%), 
-                   linear-gradient(to top, hsl(0 0% 0% / 0.35) 0%, hsl(0 0% 0% / 0.2) 30%, transparent 60%)`
-                : `radial-gradient(farthest-corner at 25% 25%, hsl(0 0% 0% / 0.4) 0%, hsl(0 0% 0% / 0.25) 10%, transparent 100%), 
-                   linear-gradient(to bottom, hsl(0 0% 0% / 0.35) 0%, hsl(0 0% 0% / 0.2) 30%, transparent 60%)`,
+                ? `radial-gradient(farthest-corner at 75% 75%, rgb(0,0,0) 0%, rgba(0,0,0,0.8) 10%, rgba(0,0,0,0.2) 100%), 
+                   linear-gradient(to top, rgb(0,0,0) 0%, rgb(0,0,0) 30%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0) 80%)`
+                : `radial-gradient(farthest-corner at 25% 25%, rgb(0,0,0) 0%, rgba(0,0,0,0.8) 10%, rgba(0,0,0,0.2) 100%), 
+                   linear-gradient(to bottom, rgb(0,0,0) 0%, rgb(0,0,0) 30%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0) 80%)`,
               backgroundRepeat: "no-repeat",
               opacity: smoothInsetOpacity,
             }}
-            initial={{ opacity: isCenter ? 0 : 0.4 }}
+            initial={{ opacity: isCenter ? 0 : 1 }}
           />
         )}
       </motion.div>

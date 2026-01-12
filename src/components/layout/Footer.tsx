@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useLocation } from "react-router-dom";
 import { socialLinks, contactInfo } from "@/data/siteData";
 
 interface FooterProps {
@@ -7,6 +8,10 @@ interface FooterProps {
 
 export const Footer = memo(function Footer({ onOpenCookieSettings }: FooterProps) {
   const currentYear = new Date().getFullYear();
+  const location = useLocation();
+  
+  // Check if we're on dark theme page (music)
+  const isDarkTheme = location.pathname.startsWith("/music");
 
   const handleCookieSettings = () => {
     if (onOpenCookieSettings) {
@@ -15,6 +20,11 @@ export const Footer = memo(function Footer({ onOpenCookieSettings }: FooterProps
       window.dispatchEvent(new CustomEvent("openCookieSettings"));
     }
   };
+
+  // Social icon filter: white on dark theme, dark on light theme
+  const iconFilter = isDarkTheme 
+    ? 'brightness(0) invert(1)' // White icons
+    : 'brightness(0) opacity(0.6)'; // Dark icons
 
   return (
     <footer className="relative bg-background border-t border-border" role="contentinfo">
@@ -84,7 +94,7 @@ export const Footer = memo(function Footer({ onOpenCookieSettings }: FooterProps
             </div>
           </div>
 
-          {/* Social links */}
+          {/* Social links - WHITE icons on dark theme */}
           <div>
             <h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-4">Социальные сети</h3>
             <ul className="flex flex-wrap gap-3">
@@ -103,7 +113,7 @@ export const Footer = memo(function Footer({ onOpenCookieSettings }: FooterProps
                       width={18}
                       height={18}
                       className="w-[18px] h-[18px]"
-                      style={{ filter: "brightness(0) opacity(0.6)" }}
+                      style={{ filter: iconFilter }}
                       loading="lazy"
                     />
                   </a>

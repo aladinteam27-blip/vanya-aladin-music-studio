@@ -1,6 +1,6 @@
-import { memo, useState, useEffect, useRef } from 'react';
+import { memo, useRef, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LayoutGrid, List, ChevronDown } from 'lucide-react';
+import { LayoutGrid, List } from 'lucide-react';
 import { motion, useInView } from 'framer-motion';
 import { Track } from '@/data/tracks';
 import { cn } from '@/lib/utils';
@@ -18,12 +18,6 @@ export const MusicGrid = memo(function MusicGrid({
 }: MusicGridProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [isMobile, setIsMobile] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth < 768 ? 4 : 4;
-    }
-    return 4;
-  });
 
   useEffect(() => {
     const checkMobile = () => {
@@ -34,18 +28,10 @@ export const MusicGrid = memo(function MusicGrid({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const visibleTracks = tracks.slice(0, visibleCount);
-  const hasMore = visibleCount < tracks.length;
-
-  const handleShowMore = () => {
-    const increment = isMobile ? 4 : 4;
-    setVisibleCount(prev => Math.min(prev + increment, tracks.length));
-  };
-
   return (
     <section className="py-12 md:py-20 bg-background">
       <div className="container mx-auto px-4 md:px-6 lg:px-8 max-w-[1660px]">
-        {/* Header */}
+        {/* Header - CANONICAL: 3 cols centered */}
         <div className="flex items-center justify-between mb-8 max-w-4xl mx-auto">
           <h2 className="text-xl md:text-2xl font-semibold text-foreground">
             Вся музыка
@@ -88,7 +74,7 @@ export const MusicGrid = memo(function MusicGrid({
               ? "grid-cols-2 max-w-lg" 
               : "grid-cols-3 max-w-4xl"
           )}>
-            {visibleTracks.map((track, index) => (
+            {tracks.map((track, index) => (
               <ScrollRevealCard 
                 key={track.id} 
                 track={track} 
@@ -100,10 +86,10 @@ export const MusicGrid = memo(function MusicGrid({
           </div>
         )}
 
-        {/* List View */}
+        {/* List View - CANONICAL: centered */}
         {viewMode === 'list' && (
-          <div className="space-y-3 max-w-4xl">
-            {visibleTracks.map((track, index) => (
+          <div className="space-y-3 max-w-4xl mx-auto">
+            {tracks.map((track, index) => (
               <ScrollRevealListItem 
                 key={track.id} 
                 track={track} 
@@ -113,32 +99,14 @@ export const MusicGrid = memo(function MusicGrid({
             ))}
           </div>
         )}
-
-        {/* Show More Button */}
-        {hasMore && (
-          <div className="flex justify-center mt-10">
-            <button
-              onClick={handleShowMore}
-              className={cn(
-                'flex items-center gap-2 px-6 py-2.5 rounded-full',
-                'bg-foreground text-background',
-                'text-sm font-medium',
-                'transition-all duration-200',
-                'hover:opacity-90 hover:scale-105',
-                'active:scale-95'
-              )}
-            >
-              Ещё
-              <ChevronDown size={14} />
-            </button>
-          </div>
-        )}
+        
+        {/* No "More" button - removed per requirements */}
       </div>
     </section>
   );
 });
 
-// CANONICAL: Scroll-triggered card with press-in effect
+// CANONICAL: Scroll-triggered card with Lady Gaga's soft tilt effect
 interface CardProps {
   track: Track;
   index: number;
@@ -149,6 +117,25 @@ interface CardProps {
 const ScrollRevealCard = memo(function ScrollRevealCard({ track, index, isMobile, onClick }: CardProps) {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
+  const [tiltX, setTiltX] = useState(0);
+  const [tiltY, setTiltY] = useState(0);
+
+  // CANONICAL: Same soft tilt as carousel center cover
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isMobile) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const normalizedX = (x / rect.width - 0.5) * 8; // Same 8deg max as carousel
+    const normalizedY = (y / rect.height - 0.5) * 8;
+    setTiltX(-normalizedY);
+    setTiltY(normalizedX);
+  };
+
+  const handleMouseLeave = () => {
+    setTiltX(0);
+    setTiltY(0);
+  };
 
   return (
     <motion.div
@@ -159,7 +146,7 @@ const ScrollRevealCard = memo(function ScrollRevealCard({ track, index, isMobile
         type: "spring",
         stiffness: 100,
         damping: 20,
-        delay: (index % 4) * 0.08,
+        delay: (index % 3) * 0.08, // Stagger per row of 3
       }}
     >
       <Link
@@ -175,16 +162,28 @@ const ScrollRevealCard = memo(function ScrollRevealCard({ track, index, isMobile
             onClick();
           }
         }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        style={{
+          perspective: "500px",
+        }}
       >
-        {/* Cover - square with soft rounded corners */}
-        <div className="overflow-hidden rounded-lg bg-muted aspect-square transition-shadow duration-200 group-hover:shadow-md">
+        {/* Cover - square with soft rounded corners and CANONICAL tilt */}
+        <motion.div 
+          className="overflow-hidden rounded-lg bg-muted aspect-square transition-shadow duration-200 group-hover:shadow-lg"
+          animate={{
+            rotateX: tiltX,
+            rotateY: tiltY,
+          }}
+          transition={{ type: "spring", stiffness: 100, damping: 20 }}
+        >
           <img
             src={track.coverUrl}
             alt={`Обложка трека "${track.title}" - ${track.format} ${track.year} года, исполнитель Ваня Аладин`}
             className="w-full h-full object-cover transition-transform duration-300"
             loading="lazy"
           />
-        </div>
+        </motion.div>
         <div className="p-2 md:p-3">
           <h3 className="font-medium text-foreground truncate text-sm md:text-base">
             {track.title}

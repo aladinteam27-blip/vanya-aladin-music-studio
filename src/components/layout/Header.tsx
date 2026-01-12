@@ -250,57 +250,53 @@ export const Header = memo(function Header() {
       {/* Mobile menu */}
       <MobileMenu isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
       
-      {/* Compact Search Modal */}
-      <>
-        {/* Backdrop */}
-        <div
-          className={cn(
-            "fixed inset-0 z-[100] bg-foreground/20 backdrop-blur-sm transition-opacity duration-300",
-            isSearchOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-          )}
+      {/* FULLSCREEN Search Overlay - CANONICAL from Lady Gaga Dialog */}
+      <div
+        className={cn(
+          "fixed inset-0 z-[100] transition-all duration-300",
+          isSearchOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        )}
+      >
+        {/* Dark backdrop - EXACT from Lady Gaga: rgba(0,0,0,0.8) */}
+        <div 
+          className="absolute inset-0 bg-black/80"
           onClick={() => setIsSearchOpen(false)}
         />
-
-        {/* Modal */}
-        <div
-          className={cn(
-            "fixed inset-x-0 top-0 z-[101] transition-all duration-300 ease-out",
-            isSearchOpen ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
-          )}
-        >
-          <div
-            className="w-full max-w-md mx-auto mt-20 mx-4 md:mx-auto bg-background rounded-2xl shadow-lg overflow-hidden border border-border"
-            onClick={(e) => e.stopPropagation()}
+        
+        {/* Search content - centered */}
+        <div className="relative h-full flex flex-col items-center justify-center px-6">
+          {/* Close button - top right */}
+          <button
+            type="button"
+            onClick={() => setIsSearchOpen(false)}
+            className="absolute top-6 right-6 p-2 text-white/70 hover:text-white transition-colors"
+            aria-label="Закрыть поиск"
           >
-            <form onSubmit={handleSearchSubmit} className="flex items-center gap-3 p-4">
-              <Search className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+            <X className="w-6 h-6" />
+          </button>
+          
+          {/* Search form */}
+          <form onSubmit={handleSearchSubmit} className="w-full max-w-2xl">
+            <div className="relative">
+              <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 text-white/50" />
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Поиск..."
-                className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground outline-none text-base"
+                className="w-full bg-transparent text-white text-2xl md:text-4xl font-light placeholder:text-white/30 outline-none border-b border-white/20 pb-4 pl-10 focus:border-white/40 transition-colors"
+                autoComplete="off"
               />
-              <button
-                type="button"
-                onClick={() => setIsSearchOpen(false)}
-                className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted"
-                aria-label="Закрыть поиск"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </form>
-
-            {/* Footer hint */}
-            <div className="px-4 py-2 border-t border-border bg-muted/30">
-              <p className="text-xs text-muted-foreground text-center">
-                <kbd className="px-1.5 py-0.5 bg-muted rounded text-foreground/70 text-[10px] font-mono">Enter</kbd> для поиска · <kbd className="px-1.5 py-0.5 bg-muted rounded text-foreground/70 text-[10px] font-mono">Esc</kbd> закрыть
-              </p>
             </div>
-          </div>
+            
+            {/* Hint */}
+            <p className="mt-6 text-sm text-white/40 text-center">
+              Нажмите <kbd className="px-2 py-1 bg-white/10 rounded text-white/60 text-xs font-mono">Enter</kbd> для поиска
+            </p>
+          </form>
         </div>
-      </>
+      </div>
     </>
   );
 });
