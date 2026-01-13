@@ -708,7 +708,8 @@ const CanonicalSlide = memo(function CanonicalSlide({
   const xFromVelocity = useTransform(
     scrollVelocity,
     [-velocityRange, 0, velocityRange],
-    [depthOffset, !isMobile && isNext ? -80 : 0, depthOffset]
+    // IMPORTANT: overlap-under-center behavior is MOBILE only (desktop must not overlap)
+    [depthOffset, isMobile && isNext ? -80 : 0, depthOffset]
   );
   const smoothX = useSpring(xFromVelocity, hoverSpring);
 
