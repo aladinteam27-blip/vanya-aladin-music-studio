@@ -27,28 +27,27 @@ interface CoverCarouselProps {
 const springConfig = { stiffness: 400, mass: 0.1, damping: 20 };
 const hoverSpring = { stiffness: 100, mass: 0.1, damping: 20 };
 
-// CANONICAL CSS variables - EXACT from Lady Gaga source (_locale).music-BDwhpSHd.css
-// IMPORTANT: Desktop = cards NOT overlapping (symmetric), Mobile = cards overlapping
+// CANONICAL CSS variables - SWAPPED per user instruction
+// DESKTOP = symmetric, cards NOT overlapping (larger offset = more space between)
+// MOBILE = overlapping, bottom card goes UNDER center
 const CONFIG = {
-  // DESKTOP: Cards symmetric, NOT overlapping - nextSlideColumnOffset: 4
+  // DESKTOP: Cards symmetric, NOT overlapping - larger column offset
   desktop: {
     slideGridSize: 4,
-    nextSlideColumnOffset: 4, // SYMMETRIC - cards don't overlap
-    nextSlideRowOffset: 2,
+    nextSlideColumnOffset: 5, // LARGER = more space, NO overlap
+    nextSlideRowOffset: 3,    // Larger row offset too
     slideGap: 48,
     canvasHeight: "100vh",
-    // EXACT from Lady Gaga: max(30vw, calc(var(--config-canvas-height) - 30vh))
-    getSlideSize: (vw: number, vh: number) => Math.max(vw * 0.3, vh * 0.65),
+    getSlideSize: (vw: number, vh: number) => Math.max(vw * 0.28, vh * 0.55),
   },
-  // MOBILE: Cards overlapping - nextSlideColumnOffset: 3
+  // MOBILE: Cards overlapping - smaller column offset = cards stack/overlap
   mobile: {
     slideGridSize: 4,
-    nextSlideColumnOffset: 3, // OVERLAPPING - cards stack
-    nextSlideRowOffset: 2,
-    slideGap: 28,
-    canvasHeight: "90svh",
-    // EXACT from Lady Gaga: min(calc(100vw - 80px), calc(var(--config-canvas-height) - 20vh))
-    getSlideSize: (vw: number, vh: number) => Math.min(vw - 80, vh * 0.7),
+    nextSlideColumnOffset: 2, // SMALLER = overlap, cards stack
+    nextSlideRowOffset: 1,    // Cards closer vertically too
+    slideGap: 20,
+    canvasHeight: "85svh",
+    getSlideSize: (vw: number, vh: number) => Math.min(vw - 60, vh * 0.55),
   },
 };
 
@@ -658,58 +657,63 @@ const CanonicalSlide = memo(function CanonicalSlide({
   const isPrev = activeSlideIndex > slideIndex;
   const isNext = activeSlideIndex < slideIndex;
 
-  // CANONICAL: rotateX from hover - soft cursor-based tilt for center
-  const rotateXFromHover = useTransform(hoverTiltY, [-0.5, 0.5], isCenter ? [8, -8] : [0, 0]);
+  // CANONICAL: rotateX from hover - soft cursor-based tilt for center AND all cards on hover
+  const rotateXFromHover = useTransform(hoverTiltY, [-0.5, 0.5], [8, -8]);
   const smoothRotateX = useSpring(rotateXFromHover, hoverSpring);
 
-  // CANONICAL: rotateY - ALL cards rotate from velocity, center ALSO from hover
-  // FIX: First card and ALL cards must rotate from velocity when not center
-  const rotateYFromHover = useTransform(hoverTiltX, [-0.5, 0.5], isCenter ? [-8, 8] : [0, 0]);
+  // CANONICAL: rotateY - ALL cards rotate from velocity
+  // FIX: Every card including first must rotate when there's velocity
+  const rotateYFromHover = useTransform(hoverTiltX, [-0.5, 0.5], [-8, 8]);
   const rotateYFromVelocity = useTransform(
     scrollVelocity,
     [-velocityRange, 0, velocityRange],
-    [-35, 0, -35]
+    [-25, 0, -25]
   );
   
-  // CANONICAL: Center uses hover, ALL others (including first card!) use velocity
-  const rotateY = isCenter ? rotateYFromHover : rotateYFromVelocity;
+  // IMPORTANT FIX: ALL cards rotate from velocity, center ALSO gets hover tilt
+  // This ensures first card rotates too
+  const baseRotateY = useTransform(scrollVelocity, (v) => {
+    const velocityRotation = (Math.abs(v) / velocityRange) * -25;
+    return velocityRotation;
+  });
+  const rotateY = isCenter ? rotateYFromHover : baseRotateY;
   const smoothRotateY = useSpring(rotateY, hoverSpring);
 
-  // CANONICAL: Inset shadow - EXACT from Lady Gaga source for DARK THEME
-  // Source: radial-gradient(farthest-corner at 75% 75%...) for depth corner effect
-  // isPrev (upper-left card): shadow at 75% 75% (bottom-right corner)
-  // isNext (lower-right card): shadow at 25% 25% (top-left corner)
+  // CANONICAL: Inset shadow - soft gradient overlays, NO hard borders
+  // isPrev (upper-left card): soft shadow at bottom-right corner
+  // isNext (lower-right card): soft shadow at top-left corner
   const insetFromVelocity = useTransform(
     scrollVelocity,
     [-velocityRange, 0, velocityRange],
-    // EXACT from Lady Gaga: opacity 0.5-1 for visible cards
-    [isPrev ? 0.5 : 0, isPrev ? (isMobile ? 0.8 : 1) : 0, isPrev ? 0.5 : 0]
+    [isPrev ? 0.4 : (isNext ? 0.6 : 0), isPrev || isNext ? 0.3 : 0, isPrev ? 0.4 : (isNext ? 0.6 : 0)]
   );
   const smoothInsetOpacity = useSpring(insetFromVelocity, hoverSpring);
 
-  // CANONICAL: Scale from velocity - applies to ALL non-center cards
+  // CANONICAL: Scale from velocity - subtle for depth
   const scaleFromVelocity = useTransform(
     scrollVelocity,
     [-velocityRange, 0, velocityRange],
-    [1.1, 1, 1.1]
+    [1.05, 1, 1.05]
   );
   const smoothScale = useSpring(scaleFromVelocity, hoverSpring);
 
-  // CANONICAL: Shadow X from velocity - creates depth feel
+  // CANONICAL: Shadow X from velocity - soft depth feel
   const shadowXFromVelocity = useTransform(
     scrollVelocity,
     [-velocityRange, 0, velocityRange],
-    [30, isNext ? -40 : 0, 30]
+    [20, isNext ? -30 : 0, 20]
   );
   const smoothShadowX = useSpring(shadowXFromVelocity, hoverSpring);
 
-  // CANONICAL: X offset from velocity (depth) - EXACT from U function
+  // CANONICAL: X offset from velocity (depth)
+  // MOBILE: isNext card slides UNDER center (negative X offset)
+  // DESKTOP: NO overlap, cards stay symmetric
   const depthOffset = getDepthOffset(slideIndex, slidesCount, isMobile);
   const xFromVelocity = useTransform(
     scrollVelocity,
     [-velocityRange, 0, velocityRange],
-    // IMPORTANT: overlap-under-center behavior is MOBILE only (desktop must not overlap)
-    [depthOffset, isMobile && isNext ? -80 : 0, depthOffset]
+    // MOBILE: bottom card goes under center (-100px), DESKTOP: no overlap (0)
+    [depthOffset, isMobile && isNext ? -100 : 0, depthOffset]
   );
   const smoothX = useSpring(xFromVelocity, hoverSpring);
 
@@ -767,24 +771,20 @@ const CanonicalSlide = memo(function CanonicalSlide({
           />
         )}
 
-        {/* Inset shadow - CANONICAL _showcaseSlideInnerInsetShadow_gjbqq_188 */}
-        {/* EXACT from Lady Gaga source: corner radial gradient + linear gradient */}
+        {/* Inset shadow - SOFT gradient, NO borders, NO hard edges */}
+        {/* Lady Gaga principle: soft corner darkening that fades naturally */}
         {!isCenter && (
           <motion.div
             className="absolute top-0 right-0 w-full h-full z-10 pointer-events-none rounded"
             style={{
-              // EXACT from Lady Gaga CSS:
-              // isPrev: --target-corner: 75% 75%; --target-vertical-side: top (upper-left card = shadow bottom-right)
-              // isNext: --target-corner: 25% 25%; --target-vertical-side: bottom (lower-right card = shadow top-left)
+              // SOFT gradients - NO hard borders, just gentle corner darkening
+              // isPrev (upper card): darken bottom-right corner
+              // isNext (lower card): darken top-left corner + slides under center
               background: isPrev 
-                ? `radial-gradient(farthest-corner at 75% 75%, rgb(0,0,0) 0%, rgba(0,0,0,0.8) 10%, rgba(0,0,0,0.2) 100%), 
-                   linear-gradient(to top, rgb(0,0,0) 0%, rgb(0,0,0) 30%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0) 80%)`
-                : `radial-gradient(farthest-corner at 25% 25%, rgb(0,0,0) 0%, rgba(0,0,0,0.8) 10%, rgba(0,0,0,0.2) 100%), 
-                   linear-gradient(to bottom, rgb(0,0,0) 0%, rgb(0,0,0) 30%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0) 80%)`,
-              backgroundRepeat: "no-repeat",
+                ? `radial-gradient(ellipse at 80% 80%, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.2) 40%, transparent 70%)`
+                : `radial-gradient(ellipse at 20% 20%, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.3) 40%, transparent 70%)`,
               opacity: smoothInsetOpacity,
             }}
-            initial={{ opacity: isCenter ? 0 : 1 }}
           />
         )}
       </motion.div>
