@@ -27,27 +27,29 @@ interface CoverCarouselProps {
 const springConfig = { stiffness: 400, mass: 0.1, damping: 20 };
 const hoverSpring = { stiffness: 100, mass: 0.1, damping: 20 };
 
-// CANONICAL CSS variables - SWAPPED per user instruction
-// DESKTOP = symmetric, cards NOT overlapping (larger offset = more space between)
-// MOBILE = overlapping, bottom card goes UNDER center
+// CANONICAL CONFIG - EXACT from Lady Gaga: ladygaga.com/music CSS
+// DESKTOP: --config-next-slide-colum-offset: 4, --config-next-slide-row-offset: 2
+// MOBILE: --config-next-slide-colum-offset: 3, --config-next-slide-row-offset: 2
 const CONFIG = {
-  // DESKTOP: Cards symmetric, NOT overlapping - larger column offset
+  // DESKTOP: Symmetric, NO overlap - EXACT Lady Gaga values
   desktop: {
     slideGridSize: 4,
-    nextSlideColumnOffset: 5, // LARGER = more space, NO overlap
-    nextSlideRowOffset: 3,    // Larger row offset too
-    slideGap: 48,
+    nextSlideColumnOffset: 4, // EXACT from Lady Gaga CSS
+    nextSlideRowOffset: 2,    // EXACT from Lady Gaga CSS
+    slideGap: 48,             // EXACT from Lady Gaga CSS
     canvasHeight: "100vh",
-    getSlideSize: (vw: number, vh: number) => Math.max(vw * 0.28, vh * 0.55),
+    // Lady Gaga: max(30vw, calc(100vh - 30vh)) => max(30vw, 70vh)
+    getSlideSize: (vw: number, vh: number) => Math.max(vw * 0.30, vh * 0.70),
   },
-  // MOBILE: Cards overlapping - smaller column offset = cards stack/overlap
+  // MOBILE: Overlapping, bottom under center - EXACT Lady Gaga values
   mobile: {
     slideGridSize: 4,
-    nextSlideColumnOffset: 2, // SMALLER = overlap, cards stack
-    nextSlideRowOffset: 1,    // Cards closer vertically too
-    slideGap: 20,
-    canvasHeight: "85svh",
-    getSlideSize: (vw: number, vh: number) => Math.min(vw - 60, vh * 0.55),
+    nextSlideColumnOffset: 3, // EXACT from Lady Gaga CSS
+    nextSlideRowOffset: 2,    // EXACT from Lady Gaga CSS
+    slideGap: 28,             // EXACT from Lady Gaga CSS
+    canvasHeight: "90svh",    // EXACT from Lady Gaga CSS
+    // Lady Gaga: min((100vw - 80px), (90svh - 20vh)) => min(vw-80, 70vh)
+    getSlideSize: (vw: number, vh: number) => Math.min(vw - 80, vh * 0.70),
   },
 };
 
@@ -706,14 +708,18 @@ const CanonicalSlide = memo(function CanonicalSlide({
   const smoothShadowX = useSpring(shadowXFromVelocity, hoverSpring);
 
   // CANONICAL: X offset from velocity (depth)
-  // MOBILE: isNext card slides UNDER center (negative X offset)
-  // DESKTOP: NO overlap, cards stay symmetric
+  // EXACT from Lady Gaga:
+  // - desktop (lg): center spacing only via depthOffset
+  // - mobile (!lg): previous slide gets a resting offset -80px so it tucks UNDER the center
   const depthOffset = getDepthOffset(slideIndex, slidesCount, isMobile);
   const xFromVelocity = useTransform(
     scrollVelocity,
     [-velocityRange, 0, velocityRange],
-    // MOBILE: bottom card goes under center (-100px), DESKTOP: no overlap (0)
-    [depthOffset, isMobile && isNext ? -100 : 0, depthOffset]
+    [
+      depthOffset,
+      isMobile && isPrev ? -80 : 0,
+      depthOffset,
+    ],
   );
   const smoothX = useSpring(xFromVelocity, hoverSpring);
 
